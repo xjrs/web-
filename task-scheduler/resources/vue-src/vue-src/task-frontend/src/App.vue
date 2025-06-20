@@ -1,11 +1,47 @@
 <script setup>
 import { RouterLink, RouterView } from 'vue-router'
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 
+const router = useRouter()
 const isMobileMenuOpen = ref(false)
+const isUserMenuOpen = ref(false)
+const isLoggedIn = ref(false)
+const userAvatar = ref('')
+
+onMounted(() => {
+  checkLoginStatus()
+  window.addEventListener('storage', checkLoginStatus)
+})
+
+const checkLoginStatus = () => {
+  const token = localStorage.getItem('token')
+  const user = JSON.parse(localStorage.getItem('user') || '{}')
+  isLoggedIn.value = !!token
+  userAvatar.value = user.avatar || ''
+  if (!isLoggedIn.value) {
+    isUserMenuOpen.value = false
+  }
+}
 
 const toggleMobileMenu = () => {
   isMobileMenuOpen.value = !isMobileMenuOpen.value
+}
+
+const toggleUserMenu = () => {
+  isUserMenuOpen.value = !isUserMenuOpen.value
+}
+
+const handleLogin = () => {
+  router.push('/auth/login')
+}
+
+const handleLogout = () => {
+  localStorage.removeItem('token')
+  localStorage.removeItem('user')
+  isLoggedIn.value = false
+  userAvatar.value = ''
+  router.push('/auth/login')
 }
 </script>
 
@@ -53,11 +89,29 @@ const toggleMobileMenu = () => {
                 <span class="nav-text">统计分析</span>
               </router-link>
             </li>
-            <li class="nav-item">
-              <router-link to="/settings" class="nav-link">
-                <span class="nav-icon">⚙️</span>
-                <span class="nav-text">设置</span>
-              </router-link>
+            <!-- User Avatar/Login Button -->
+            <li class="nav-item user-menu-container">
+              <template v-if="isLoggedIn">
+                <button class="avatar-button" @click="toggleUserMenu">
+                  <img v-if="userAvatar && userAvatar !== 'default-avatar.png'" :src="userAvatar" alt="User avatar" class="user-avatar" />
+                  <div v-else class="default-avatar">
+                    <img src="@/assets/default-avatar.svg" alt="Default Avatar" class="default-avatar-img" />
+                  </div>
+                </button>
+                <div v-show="isUserMenuOpen" class="user-menu">
+                  <router-link to="/settings" class="menu-item" @click="isUserMenuOpen = false">
+                    <span class="menu-icon">⚙️</span>
+                    <span>设置</span>
+                  </router-link>
+                  <button class="menu-item logout-button" @click="handleLogout">
+                    <span class="menu-icon">🚪</span>
+                    <span>退出登录</span>
+                  </button>
+                </div>
+              </template>
+              <button v-else class="login-button" @click="handleLogin">
+                <span>登录</span>
+              </button>
             </li>
           </ul>
         </nav>
@@ -76,7 +130,7 @@ const toggleMobileMenu = () => {
           <li><router-link to="/calendar" @click="isMobileMenuOpen = false">📅 日程安排</router-link></li>
           <li><router-link to="/project" @click="isMobileMenuOpen = false">📋 项目总览</router-link></li>
           <li><router-link to="/statistics" @click="isMobileMenuOpen = false">📊 统计分析</router-link></li>
-          <li><router-link to="/settings" @click="isMobileMenuOpen = false">⚙️ 设置</router-link></li>
+
         </ul>
       </nav>
     </header>
@@ -166,6 +220,132 @@ body {
   font-size: 0.75rem;
   color: var(--text-secondary);
   font-weight: 500;
+}
+
+/* User menu styles */
+.user-menu-container {
+  position: relative;
+  margin-left: 1rem;
+}
+
+.avatar-button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 4px;
+}
+
+.user-avatar {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.default-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.default-avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
+.login-button {
+  background: linear-gradient(135deg, var(--primary-color), #8b5cf6);
+  color: white;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 25px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.9rem;
+  letter-spacing: 0.5px;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3);
+  position: relative;
+  overflow: hidden;
+  margin-top: 0.5rem;
+}
+
+.login-button::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  transition: left 0.5s;
+}
+
+.login-button:hover {
+  background: linear-gradient(135deg, var(--primary-hover), #7c3aed);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(99, 102, 241, 0.4);
+}
+
+.login-button:hover::before {
+  left: 100%;
+}
+
+.login-button:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 10px rgba(99, 102, 241, 0.3);
+}
+
+.user-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 0.5rem;
+  background: white;
+  border-radius: var(--border-radius);
+  box-shadow: var(--shadow-md);
+  min-width: 200px;
+  z-index: 1000;
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  color: var(--text-primary);
+  text-decoration: none;
+  transition: var(--transition);
+  cursor: pointer;
+  border: none;
+  background: none;
+  width: 100%;
+  text-align: left;
+  font-size: 1rem;
+}
+
+.menu-item:hover {
+  background-color: var(--secondary-color);
+}
+
+.logout-button {
+  color: #ef4444;
+}
+
+.menu-icon {
+  font-size: 1.25rem;
 }
 
 /* Desktop navigation */
