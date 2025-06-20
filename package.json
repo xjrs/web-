@@ -1,5 +1,6 @@
 {
   "dependencies": {
+    "@fullcalendar/timegrid": "^6.1.17",
     "dhtmlx-scheduler": "^7.2.5",
     "dhtmlx-suite": "^5.0.1",
     "echarts": "^5.6.0"
