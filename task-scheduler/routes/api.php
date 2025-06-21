@@ -25,7 +25,7 @@ Route::post('/auth/reset-password', [AuthController::class, 'resetPassword']);
 // 需要认证的路由
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/user', [AuthController::class, 'user']);
+    Route::put('/user/update', [AuthController::class, 'updateUser']);
     Route::post('/auth/logout', [AuthController::class, 'logout']);
     Route::apiResource('tasks', TaskController::class);
 });
-

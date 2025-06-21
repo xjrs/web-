@@ -133,4 +133,54 @@ class AuthController extends Controller
     {
         return response()->json($request->user());
     }
+
+    public function updateUser(Request $request)
+    {
+        // 打印调试信息
+        info('开始处理更新用户请求');
+        info('请求数据:', $request->all());
+        info('当前认证用户ID: ' . ($request->user() ? $request->user()->id : 'null'));
+        info('请求路径: ' . $request->path());
+        info('请求方法: ' . $request->method());
+        
+        $user = $request->user();
+        info('获取到用户信息:', ['id' => $user->id, 'name' => $user->name, 'email' => $user->email]);
+        
+        $validator = Validator::make($request->all(), [
+            'name' => 'required|string|max:255',
+            'current_password' => 'required_with:password|string',
+            'password' => 'nullable|string|min:3|confirmed',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['errors' => $validator->errors()], 422);
+        }
+
+        // 如果要更新密码，验证当前密码
+        if ($request->filled('password')) {
+            if (!Hash::check($request->current_password, $user->password)) {
+                return response()->json([
+                    'errors' => ['current_password' => ['旧密码不正确']]
+                ], 422);
+            }
+            
+            // 检查新密码是否与当前密码相同
+            if (Hash::check($request->password, $user->password)) {
+                return response()->json([
+                    'errors' => ['password' => ['新密码不能与旧密码相同']]
+                ], 422);
+            }
+            
+            $user->password = Hash::make($request->password);
+        }
+
+        // 更新用户名
+        $user->name = $request->name;
+        $user->save();
+
+        return response()->json([
+            'message' => '用户信息更新成功',
+            'user' => $user
+        ]);
+    }
 }
