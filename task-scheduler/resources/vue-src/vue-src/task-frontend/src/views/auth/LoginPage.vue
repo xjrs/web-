@@ -98,6 +98,8 @@ const handleLogin = async () => {
     localStorage.setItem('token', response.data.access_token)
     localStorage.setItem('user', JSON.stringify(response.data.user))
     axios.defaults.headers.common['Authorization'] = `Bearer ${response.data.access_token}`
+    // 触发一个全局事件
+    window.dispatchEvent(new Event('auth-state-changed'))
     // 获取重定向地址
     const redirectPath = router.currentRoute.value.query.redirect || '/'
     router.push(redirectPath)

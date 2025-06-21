@@ -52,6 +52,10 @@ class AuthController extends Controller
             return response()->json(['errors' => $validator->errors()], 422);
         }
 
+        if ($request->remember) {
+            Auth::setRememberDuration(1440); // 设置为1天（24小时 * 60分钟）
+        }
+
         if (!Auth::attempt($request->only('email', 'password'), $request->remember)) {
             return response()->json([
                 'message' => '登录凭证无效'

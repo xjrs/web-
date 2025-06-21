@@ -36,21 +36,11 @@ instance.interceptors.response.use(
         // 清除token和用户信息
         localStorage.removeItem('token')
         localStorage.removeItem('user')
-        // 在新窗口打开登录页面
-        const loginWindow = window.open('/auth/login', '_blank', 'width=500,height=600')
-        
-        // 监听登录成功消息
-        window.addEventListener('message', function(event) {
-          if (event.data.type === 'login-success') {
-            // 保存新的token
-            localStorage.setItem('token', event.data.token)
-            localStorage.setItem('user', JSON.stringify(event.data.user))
-            // 关闭登录窗口
-            loginWindow.close()
-            // 重新发送之前失败的请求
-            return instance(error.config)
-          }
-        })
+        // 检查当前是否在登录页面
+        if (!window.location.pathname.includes('/auth/login')) {
+          window.location.href = '/auth/login'
+        }
+        return Promise.reject(error)
       }
     }
     return Promise.reject(error)

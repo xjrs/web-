@@ -9,9 +9,19 @@ const isUserMenuOpen = ref(false)
 const isLoggedIn = ref(false)
 const userAvatar = ref('')
 
-onMounted(() => {
-  checkLoginStatus()
-  window.addEventListener('storage', checkLoginStatus)
+onMounted(() => { 
+   checkLoginStatus()  // 初始检查
+   // 监听 localStorage 变化（用于多标签页同步）
+   window.addEventListener('storage', checkLoginStatus)
+   // 监听自定义登录事件（用于同一页面内的状态更新）
+   window.addEventListener('auth-state-changed', checkLoginStatus)
+   // 监听全局点击事件，用于关闭用户菜单
+   document.addEventListener('click', (event) => {
+     // 如果点击的不是用户菜单区域，就关闭菜单
+     if (!event.target.closest('.user-menu-container')) {
+       isUserMenuOpen.value = false
+     }
+   })
 })
 
 const checkLoginStatus = () => {
@@ -19,9 +29,7 @@ const checkLoginStatus = () => {
   const user = JSON.parse(localStorage.getItem('user') || '{}')
   isLoggedIn.value = !!token
   userAvatar.value = user.avatar || ''
-  if (!isLoggedIn.value) {
-    isUserMenuOpen.value = false
-  }
+  isUserMenuOpen.value = false  // 确保菜单是关闭状态
 }
 
 const toggleMobileMenu = () => {
