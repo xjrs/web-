@@ -20,24 +20,30 @@ class Project extends Model
         'description',
         'status',
         'priority',
-        'start_date',
-        'end_date',
-        'budget',
-        'actual_cost',
-        'completion_percentage',
-        'is_archived'
+        'expected_start_time',
+        'expected_end_time',
+        'actual_start_time',
+        'actual_end_time',
+        'manager_id',
+        'participant_count',
+        'total_tasks'
     ];
     
     protected $casts = [
-        'start_date' => 'date',
-        'end_date' => 'date',
-        'budget' => 'decimal:2',
-        'actual_cost' => 'decimal:2',
-        'completion_percentage' => 'integer',
-        'is_archived' => 'boolean',
+        'expected_start_time' => 'datetime',
+        'expected_end_time' => 'datetime',
+        'actual_start_time' => 'datetime',
+        'actual_end_time' => 'datetime',
+        'participant_count' => 'integer',
+        'total_tasks' => 'integer',
         'created_at' => 'datetime',
         'updated_at' => 'datetime'
     ];
+    
+    /**
+     * 自动追加的属性
+     */
+    protected $appends = ['stats'];
     
     /**
      * 获取项目的所有任务
@@ -68,9 +74,9 @@ class Project extends Model
     /**
      * 获取项目管理员
      */
-    public function managers()
+    public function manager()
     {
-        return $this->users()->wherePivot('role', 'manager');
+        return $this->belongsTo(User::class, 'manager_id');
     }
     
     /**
@@ -100,13 +106,34 @@ class Project extends Model
      */
     public function isDelayed()
     {
-        if (!$this->end_date) {
+        if (!$this->expected_end_time) {
             return false;
         }
         
-        return now()->gt($this->end_date) && $this->status !== 'completed';
+        return now()->gt($this->expected_end_time) && $this->status !== 'completed';
     }
     
+    /**
+     * 获取项目统计信息
+     */
+    /**
+     * 获取项目经理信息
+     */
+    public function getManagerAttribute()
+    {
+        return $this->manager;
+    }
+
+    /**
+     * 获取团队成员信息
+     */
+    public function getTeamMembersAttribute()
+    {
+        return $this->users()
+            ->wherePivot('role', 'member')
+            ->get();
+    }
+
     /**
      * 获取项目统计信息
      */

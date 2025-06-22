@@ -28,7 +28,7 @@ const checkLoginStatus = () => {
   const token = localStorage.getItem('token')
   const user = JSON.parse(localStorage.getItem('user') || '{}')
   isLoggedIn.value = !!token
-  userAvatar.value = user.avatar || ''
+  userAvatar.value = user.avatar ? `http://localhost:8000/${user.avatar}` : ''
   isUserMenuOpen.value = false  // 确保菜单是关闭状态
 }
 

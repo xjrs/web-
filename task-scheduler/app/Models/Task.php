@@ -21,7 +21,8 @@ class Task extends Model
         'actual_start_time',
         'expected_end_time',
         'actual_end_time',
-        'project_id'
+        'project_id',
+        'manager_id'
     ];
     
     protected $casts = [
@@ -40,6 +41,14 @@ class Task extends Model
     {
         return $this->belongsTo(Project::class);
     }
+
+    /**
+     * 获取任务负责人
+     */
+    public function manager(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'manager_id');
+    }
     
     /**
      * 获取任务分配给的用户
@@ -47,7 +56,7 @@ class Task extends Model
     public function assignedUsers(): BelongsToMany
     {
         return $this->belongsToMany(User::class, 'user_task_assignments')
-                    ->withPivot('role', 'is_manager', 'work_description', 'assigned_at')
+                    ->withPivot('role', 'work_description', 'assigned_at')
                     ->withTimestamps();
     }
     
@@ -71,21 +80,7 @@ class Task extends Model
         return now()->gt($this->expected_end_time) && $this->status !== 'completed';
     }
     
-    /**
-     * 获取任务进度百分比
-     */
-    public function getProgressAttribute(): int
-    {
-        switch ($this->status) {
-            case 'completed':
-                return 100;
-            case 'in_progress':
-                return 50; // 可以根据实际需求调整
-            case 'pending':
-            default:
-                return 0;
-        }
-    }
+
 }
 
 

@@ -132,8 +132,15 @@
         </div>
       </div>
 
+      <!-- Empty State -->
+      <div v-if="filteredProjects.length === 0" class="empty-state">
+        <div class="empty-icon">📋</div>
+        <h3>暂无项目</h3>
+        <p>您目前没有任何项目。点击右上角的"新建项目"按钮开始创建吧！</p>
+      </div>
+
       <!-- Grid View -->
-      <div v-if="viewMode === 'grid'" class="project-grid">
+      <div v-else-if="viewMode === 'grid'" class="project-grid">
         <div
           class="project-card"
           v-for="project in filteredProjects"
@@ -307,20 +314,20 @@
             </div>
             <div class="overview-item">
               <div class="overview-label">项目经理</div>
-              <div class="overview-value">{{ selectedProject.manager || '未分配' }}</div>
-            </div>
-            <div class="overview-item">
-              <div class="overview-label">团队规模</div>
-              <div class="overview-value">{{ selectedProject.team_size || 0 }} 人</div>
-            </div>
-          </div>
-        </div>
+              <div class="overview-value">{{ selectedProject.manager?.name || '未分配' }}</div>
+             </div>
+             <div class="overview-item">
+               <div class="overview-label">团队规模</div>
+               <div class="overview-value">{{ selectedProject.stats?.team_size || 0 }} 人</div>
+             </div>
+           </div>
+         </div>
 
-        <div class="tasks-section">
-          <div class="tasks-header">
-            <h4>任务列表</h4>
-            <span class="task-stats">
-              {{ selectedProject.completed_count || 0 }} / {{ selectedProject.task_count || 0 }} 已完成
+         <div class="tasks-section">
+           <div class="tasks-header">
+             <h4>任务列表</h4>
+             <span class="task-stats">
+               {{ selectedProject.stats?.completed_tasks || 0 }} / {{ selectedProject.stats?.total_tasks || 0 }} 已完成
             </span>
           </div>
           
@@ -334,10 +341,17 @@
             >
               <div class="task-main-info">
                 <div class="task-header">
-                  <div class="task-title">{{ task.title || task.name }}</div>
-                  <div class="task-status-badge">
-                    <span class="status-dot" :class="getTaskStatusClass(task.status)"></span>
-                    {{ getTaskStatusText(task.status) }}
+                  <div class="task-title">
+                    <span class="task-icon">📋</span>
+                    {{ task.title || task.name }}
+                  </div>
+                  <div class="task-status-badge" :class="getTaskStatusClass(task.status)">
+                    <span class="status-dot"></span>
+                    {{ {
+                      'pending': '待处理',
+                      'in_progress': '进行中',
+                      'completed': '已完成'
+                    }[task.status] || task.status }}
                   </div>
                 </div>
                 <div class="task-details">
@@ -350,6 +364,10 @@
                   <div class="task-manager">
                     <span class="manager-icon">👤</span>
                     <span class="manager-text">{{ task.manager_name || '未分配' }}</span>
+                  </div>
+                  <div class="task-date">
+                    <span class="date-icon">📅</span>
+                    <span class="date-text">{{ formatDateTime(task.expected_end_time) }}</span>
                   </div>
                 </div>
               </div>
@@ -394,9 +412,9 @@
     <!-- Task Details Modal -->
     <div class="modal-overlay" v-if="showTaskModal" @click="closeTaskModal">
       <div class="modal-content task-modal" @click.stop>
-        <div class="modal-header">
-          <h3>任务详情</h3>
-          <button class="modal-close" @click="showTaskModal = false">×</button>
+        <div class="modal-header" style="background-color: #f8f9fa; border-bottom: 1px solid #e9ecef; padding: 1rem 1.5rem;">
+          <h3 style="margin: 0; color: #495057; font-size: 1.25rem;">任务详情</h3>
+          <button class="modal-close" @click="showTaskModal = false" style="background: none; border: none; font-size: 1.5rem; color: #6c757d; cursor: pointer; padding: 0.5rem;">×</button>
         </div>
         <div class="modal-body" v-if="selectedTask">
           <!-- 基本信息 -->
@@ -412,8 +430,12 @@
             <div class="info-row">
               <div class="info-label">任务状态</div>
               <div class="info-value">
-                <span class="status-badge" :class="getTaskStatusClass(selectedTask.status)">
-                  {{ getTaskStatusText(selectedTask.status) }}
+                <span class="status-badge" :class="getTaskStatusClass(selectedTask.status)" style="padding: 0.5rem 1rem; border-radius: 20px; font-weight: 500;">
+                  {{ {
+                    'pending': '待处理',
+                    'in_progress': '进行中',
+                    'completed': '已完成'
+                  }[selectedTask.status] || selectedTask.status }}
                 </span>
               </div>
             </div>
@@ -432,8 +454,8 @@
           </div>
 
           <!-- 时间信息 -->
-          <div class="task-time-info">
-            <h4>时间信息</h4>
+          <div class="task-time-info" style="background-color: #f8f9fa; border-radius: 8px; padding: 1rem; margin-top: 1rem;">
+            <h4 style="color: #495057; margin-top: 0;">时间信息</h4>
             <div class="time-grid">
               <div class="time-item">
                 <div class="time-label">创建时间</div>
@@ -459,8 +481,8 @@
           </div>
 
           <!-- 项目关系信息 -->
-          <div class="task-project-info">
-            <h4>项目关系</h4>
+          <div class="task-project-info" style="background-color: #f8f9fa; border-radius: 8px; padding: 1rem; margin-top: 1rem;">
+            <h4 style="color: #495057; margin-top: 0;">项目关系</h4>
             <div class="project-relation">
               <div class="relation-item">
                 <div class="relation-label">是否关键任务</div>
@@ -478,8 +500,8 @@
           </div>
 
           <!-- 任务成员 -->
-          <div class="task-members-info">
-            <h4>任务成员</h4>
+          <div class="task-members-info" style="background-color: #f8f9fa; border-radius: 8px; padding: 1rem; margin-top: 1rem;">
+            <h4 style="color: #495057; margin-top: 0;">任务成员</h4>
             <div class="members-list" v-if="selectedTask.members && selectedTask.members.length">
               <div class="member-item" v-for="member in selectedTask.members" :key="member.id">
                 <div class="member-avatar">
@@ -938,24 +960,60 @@ export default {
           const response = await this.$axios.get('/api/projects');
           
           if (response.data.success) {
-            this.projects = response.data.data;
-            this.filterProjects();
+            console.log('后端返回的项目数据:', response.data.data);
+            // 使用后端返回的数据，并确保每个项目都包含stats属性和成员信息
+            this.projects = (response.data.data || []).map(project => {
+              console.log('单个项目数据:', project);
+              console.log('项目经理信息:', project.manager);
+              return ({
+              ...project,
+              team_size: project.stats?.team_size || 0,
+              task_count: project.stats?.total_tasks || 0,
+              completed_count: project.stats?.completed_tasks || 0,
+              progress: project.stats?.progress || 0,
+              manager: project.manager?.name || '未分配',
+              manager_id: project.manager?.id || null,
+              members: project.users || [],
+              team_members: (project.users || []).map(user => user.name)
+            });
+          });
+          this.filterProjects();
           } else {
+            // API调用失败，显示错误消息
+            this.$message.error(response.data.message || '获取项目数据失败');
             console.error('获取项目数据失败:', response.data.message);
-            // API调用失败时使用默认数据
-            this.projects = this.getDefaultProjects();
-            this.filterProjects();
+            
+            // 在开发环境下使用演示数据
+            if (process.env.NODE_ENV === 'development') {
+              this.projects = this.getDefaultProjects();
+              this.filterProjects();
+              this.$message.warning('当前显示的是演示数据');
+            } else {
+              this.projects = [];
+              this.filterProjects();
+            }
           }
         } else {
-          // 未登录用户直接使用前端演示数据
+          // 未登录用户使用演示数据
           this.projects = this.getDefaultProjects();
           this.filterProjects();
+          this.$message.info('请登录后查看真实项目数据');
         }
       } catch (error) {
+        // 显示具体错误信息
+        const errorMessage = error.response?.data?.message || error.message || '获取项目数据失败';
+        this.$message.error(errorMessage);
         console.error('获取项目数据出错:', error);
-        // 如果API调用失败，使用默认数据
-        this.projects = this.getDefaultProjects();
-        this.filterProjects();
+        
+        // 在开发环境下使用演示数据
+        if (process.env.NODE_ENV === 'development') {
+          this.projects = this.getDefaultProjects();
+          this.filterProjects();
+          this.$message.warning('当前显示的是演示数据');
+        } else {
+          this.projects = [];
+          this.filterProjects();
+        }
       } finally {
         this.loading = false;
       }
@@ -972,13 +1030,33 @@ export default {
           if (response.data.success) {
             this.contacts = response.data.data;
           } else {
+            // API调用失败，显示错误消息
+            this.$message.error(response.data.message || '获取通讯录数据失败');
             console.error('获取通讯录数据失败:', response.data.message);
+            
+            // 在开发环境下保持使用演示数据
+            if (process.env.NODE_ENV === 'development') {
+              this.$message.warning('当前显示的是演示通讯录数据');
+            } else {
+              this.contacts = [];
+            }
           }
+        } else {
+          // 未登录用户使用默认演示数据
+          this.$message.info('请登录后查看真实通讯录数据');
         }
-        // 未登录用户使用默认演示数据（已在data中定义）
       } catch (error) {
+        // 显示具体错误信息
+        const errorMessage = error.response?.data?.message || error.message || '获取通讯录数据失败';
+        this.$message.error(errorMessage);
         console.error('获取通讯录数据出错:', error);
-        // 保持使用默认演示数据
+        
+        // 在开发环境下保持使用演示数据
+        if (process.env.NODE_ENV === 'development') {
+          this.$message.warning('当前显示的是演示通讯录数据');
+        } else {
+          this.contacts = [];
+        }
       }
     },
     
@@ -1178,7 +1256,14 @@ export default {
           // 已登录用户获取真实项目详情
           response = await this.$axios.get(`/api/projects/${project.id}`);
           if (response.data.success) {
-            this.selectedProject = response.data.data;
+            const projectData = response.data.data;
+            // 补充 manager 信息
+            projectData.manager = {
+              id: projectData.manager_id,
+              name: this.projects.find(p => p.id === project.id)?.manager || '未分配'
+            };
+            this.selectedProject = projectData;
+            console.log('selectProject方法中的selectedProject:', this.selectedProject);
           } else {
             this.selectedProject = { ...project };
           }
@@ -2486,71 +2571,134 @@ export default {
 }
 
 .task-list {
+  display: flex;
+  flex-direction: column;
   gap: 0.75rem;
 }
 
 .task-item {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
+  background: white;
+  border-radius: 12px;
   padding: 1rem;
-  background: #f8fafc;
-  border-radius: 8px;
   margin-bottom: 0.75rem;
-}
-
-.task-checkbox {
-  flex-shrink: 0;
-}
-
-.task-checkbox input[type="checkbox"] {
-  width: 18px;
-  height: 18px;
+  border: 1px solid #e2e8f0;
+  transition: all 0.2s ease;
   cursor: pointer;
 }
 
-.task-content {
-  flex: 1;
+.task-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  border-color: #cbd5e1;
 }
 
-.task-name {
+.task-main-info {
+  width: 100%;
+}
+
+.task-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
+.task-title {
   font-weight: 600;
   color: #1e293b;
-  margin-bottom: 0.25rem;
-}
-
-.task-meta {
-  display: flex;
-  gap: 1rem;
-  font-size: 0.8rem;
-  color: #64748b;
-}
-
-.task-status {
+  font-size: 1rem;
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  font-size: 0.8rem;
-  color: #64748b;
+}
+
+.task-icon {
+  font-size: 1.1rem;
+}
+
+.task-status-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.8rem;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.task-status-badge.pending {
+  background-color: #fff8e6;
+  color: #b88700;
+}
+
+.task-status-badge.in_progress {
+  background-color: #e6f3ff;
+  color: #0066cc;
+}
+
+.task-status-badge.completed {
+  background-color: #e6ffe6;
+  color: #00994d;
 }
 
 .status-dot {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
-  background: #cbd5e1;
 }
 
-.task-pending .status-dot {
-  background: #fbbf24;
+.pending .status-dot {
+  background-color: #ffc107;
 }
 
-.task-active .status-dot {
-  background: #10b981;
+.in_progress .status-dot {
+  background-color: #2196f3;
 }
 
-.task-completed .status-dot {
-  background: #059669;
+.completed .status-dot {
+  background-color: #4caf50;
+}
+
+.task-details {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  color: #64748b;
+  font-size: 0.875rem;
+}
+
+.task-priority,
+.task-manager,
+.task-date {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.priority-icon,
+.manager-icon,
+.date-icon {
+  font-size: 1rem;
+}
+
+.priority-text {
+  font-weight: 500;
+}
+
+.priority-text.urgent {
+  color: #dc2626;
+}
+
+.priority-text.high {
+  color: #ea580c;
+}
+
+.priority-text.medium {
+  color: #0284c7;
+}
+
+.priority-text.low {
+  color: #64748b;
 }
 
 .empty-tasks {
@@ -2981,10 +3129,48 @@ export default {
 }
 
 .status-badge {
-  padding: 4px 12px;
-  border-radius: 12px;
-  font-size: 12px;
+  padding: 6px 16px;
+  border-radius: 20px;
+  font-size: 13px;
   font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.status-badge::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.status-badge.pending {
+  background-color: #fff8e6;
+  color: #b88700;
+}
+
+.status-badge.pending::before {
+  background-color: #ffc107;
+}
+
+.status-badge.in_progress {
+  background-color: #e6f3ff;
+  color: #0066cc;
+}
+
+.status-badge.in_progress::before {
+  background-color: #2196f3;
+}
+
+.status-badge.completed {
+  background-color: #e6ffe6;
+  color: #00994d;
+}
+
+.status-badge.completed::before {
+  background-color: #4caf50;
 }
 
 .priority-tag {
@@ -3193,5 +3379,36 @@ export default {
   .info-label {
     width: auto;
   }
+}
+
+/* 空状态样式 */
+.empty-state {
+  text-align: center;
+  padding: 3rem 1rem;
+  background: #f8f9fa;
+  border-radius: 8px;
+  margin: 1rem;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.empty-state .empty-icon {
+  font-size: 4rem;
+  margin-bottom: 1rem;
+  color: #6c757d;
+}
+
+.empty-state h3 {
+  font-size: 1.5rem;
+  color: #343a40;
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+}
+
+.empty-state p {
+  color: #6c757d;
+  font-size: 1rem;
+  max-width: 400px;
+  margin: 0 auto;
+  line-height: 1.5;
 }
 </style>

@@ -14,7 +14,7 @@ return new class extends Migration
     public function up()
     {
         Schema::table('users', function (Blueprint $table) {
-            $table->string('avatar')->nullable()->default('default-avatar.png');
+            $table->string('avatar')->nullable()->default('avatars/default-avatar.svg');
         });
     }
 

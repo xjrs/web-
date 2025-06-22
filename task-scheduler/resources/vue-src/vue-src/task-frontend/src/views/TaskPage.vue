@@ -1327,9 +1327,7 @@ export default {
   background: #f1f5f9;
 }
 
-.task-card-body {
-  space-y: 1rem;
-}
+
 
 .task-meta {
   display: flex;

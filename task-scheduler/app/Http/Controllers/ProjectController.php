@@ -18,7 +18,7 @@ class ProjectController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
-        $query = Project::with(['users', 'tasks']);
+        $query = Project::with(['users', 'tasks', 'manager']);
         
         // 如果用户已登录，只显示用户参与的项目
         if (Auth::check()) {
@@ -47,18 +47,38 @@ class ProjectController extends Controller
             });
         }
         
-        // 是否包含已归档项目
-        if (!$request->boolean('include_archived')) {
-            $query->where('is_archived', false);
+        // 是否包含已取消项目
+        if (!$request->boolean('include_cancelled')) {
+            $query->where('status', '!=', 'cancelled');
         }
         
-        $projects = $query->get();
+        // 分页参数
+        $perPage = $request->get('per_page', 15);
+        $projects = $query->paginate($perPage);
         
-        // stats 属性通过访问器自动计算，无需手动赋值
+        // 调试日志：记录返回的项目数据
+        \Illuminate\Support\Facades\Log::info('ProjectController@index - Projects data:', [
+            'total_projects' => $projects->total(),
+            'current_page' => $projects->currentPage(),
+            'projects_count' => count($projects->items())
+        ]);
+        
+        // 调试日志：记录每个项目的stats数据
+        foreach ($projects->items() as $project) {
+            \Illuminate\Support\Facades\Log::info('Project stats for ID ' . $project->id . ':', [
+                'stats' => $project->stats
+            ]);
+        }
         
         return response()->json([
             'success' => true,
-            'data' => $projects,
+            'data' => $projects->items(),
+            'pagination' => [
+                'current_page' => $projects->currentPage(),
+                'last_page' => $projects->lastPage(),
+                'per_page' => $projects->perPage(),
+                'total' => $projects->total()
+            ],
             'stats' => $this->getProjectStats($projects)
         ]);
     }
@@ -90,7 +110,29 @@ class ProjectController extends Controller
             }
         ]);
         
-        $project->stats = $project->stats;
+        // 调试日志：记录项目基本信息
+        \Illuminate\Support\Facades\Log::info('ProjectController@show - Project loaded:', [
+            'project_id' => $project->id,
+            'project_name' => $project->name,
+            'tasks_count' => $project->tasks->count(),
+            'users_count' => $project->users->count()
+        ]);
+        
+        // 调试日志：记录项目stats数据
+        \Illuminate\Support\Facades\Log::info('ProjectController@show - Project stats:', [
+            'project_id' => $project->id,
+            'stats' => $project->stats
+        ]);
+        
+        // 调试日志：记录任务详情
+        foreach ($project->tasks as $task) {
+            \Illuminate\Support\Facades\Log::info('Task details for project ' . $project->id . ':', [
+                'task_id' => $task->id,
+                'task_title' => $task->title,
+                'task_status' => $task->status,
+                'assigned_users_count' => $task->assignedUsers->count()
+            ]);
+        }
         
         return response()->json([
             'success' => true,
@@ -106,11 +148,15 @@ class ProjectController extends Controller
         $request->validate([
             'name' => 'required|string|max:255',
             'description' => 'nullable|string',
-            'status' => ['required', Rule::in(['planning', 'active', 'paused', 'completed', 'cancelled'])],
+            'status' => ['required', Rule::in(['planning', 'active', 'on_hold', 'completed', 'cancelled'])],
             'priority' => ['required', Rule::in(['low', 'medium', 'high', 'urgent'])],
-            'start_date' => 'nullable|date',
-            'end_date' => 'nullable|date|after_or_equal:start_date',
-            'budget' => 'nullable|numeric|min:0',
+            'expected_start_time' => 'nullable|date',
+            'expected_end_time' => 'nullable|date|after_or_equal:expected_start_time',
+            'actual_start_time' => 'nullable|date',
+            'actual_end_time' => 'nullable|date',
+            'manager_id' => 'required|exists:users,id',
+            'participant_count' => 'nullable|integer|min:0',
+            'total_tasks' => 'nullable|integer|min:0'
         ]);
         
         DB::beginTransaction();
@@ -173,14 +219,15 @@ class ProjectController extends Controller
         $request->validate([
             'name' => 'sometimes|required|string|max:255',
             'description' => 'nullable|string',
-            'status' => ['sometimes', Rule::in(['planning', 'active', 'paused', 'completed', 'cancelled'])],
+            'status' => ['sometimes', Rule::in(['planning', 'active', 'on_hold', 'completed', 'cancelled'])],
             'priority' => ['sometimes', Rule::in(['low', 'medium', 'high', 'urgent'])],
-            'start_date' => 'nullable|date',
-            'end_date' => 'nullable|date|after_or_equal:start_date',
-            'budget' => 'nullable|numeric|min:0',
-            'actual_cost' => 'nullable|numeric|min:0',
-            'completion_percentage' => 'nullable|integer|min:0|max:100',
-            'is_archived' => 'nullable|boolean'
+            'expected_start_time' => 'nullable|date',
+            'expected_end_time' => 'nullable|date|after_or_equal:expected_start_time',
+            'actual_start_time' => 'nullable|date',
+            'actual_end_time' => 'nullable|date',
+            'manager_id' => 'sometimes|required|exists:users,id',
+            'participant_count' => 'nullable|integer|min:0',
+            'total_tasks' => 'nullable|integer|min:0'
         ]);
         
         $project->update($request->all());
@@ -254,11 +301,12 @@ class ProjectController extends Controller
      */
     private function getProjectStats($projects): array
     {
-        $total = $projects->count();
-        $active = $projects->where('status', 'active')->count();
-        $completed = $projects->where('status', 'completed')->count();
-        $planning = $projects->where('status', 'planning')->count();
-        $delayed = $projects->filter(function ($project) {
+        $collection = $projects->getCollection();
+        $total = $collection->count();
+        $active = $collection->where('status', 'active')->count();
+        $completed = $collection->where('status', 'completed')->count();
+        $planning = $collection->where('status', 'planning')->count();
+        $delayed = $collection->filter(function ($project) {
             return $project->isDelayed();
         })->count();
         
