@@ -502,17 +502,20 @@
           <!-- 任务成员 -->
           <div class="task-members-info" style="background-color: #f8f9fa; border-radius: 8px; padding: 1rem; margin-top: 1rem;">
             <h4 style="color: #495057; margin-top: 0;">任务成员</h4>
-            <div class="members-list" v-if="selectedTask.members && selectedTask.members.length">
-              <div class="member-item" v-for="member in selectedTask.members" :key="member.id">
+            <div class="members-list" v-if="selectedTask.assigned_users && selectedTask.assigned_users.length">
+              <div class="member-item" v-for="member in selectedTask.assigned_users" :key="member.id">
                 <div class="member-avatar">
                   <span class="avatar-text">{{ getInitials(member.name) }}</span>
                 </div>
                 <div class="member-details">
                   <div class="member-name">{{ member.name }}</div>
                   <div class="member-email">{{ member.email }}</div>
-                  <div class="member-role">{{ member.role || '成员' }}</div>
-                  <div class="member-work" v-if="member.work_description">
-                    工作描述：{{ member.work_description }}
+                  <div class="member-role">{{ member.pivot?.role || '成员' }}</div>
+                  <div class="member-work" v-if="member.pivot?.work_description">
+                    工作描述：{{ member.pivot.work_description }}
+                  </div>
+                  <div class="member-assigned-time" v-if="member.pivot?.assigned_at">
+                    分配时间：{{ formatDateTime(member.pivot.assigned_at) }}
                   </div>
                 </div>
               </div>
@@ -1682,21 +1685,39 @@ export default {
     },
 
     // 任务详情相关方法
-    showTaskDetails(task) {
-      // 模拟完整的任务数据
-      this.selectedTask = {
-        ...task,
-        title: task.title || task.name,
-        description: task.description || '这是一个示例任务描述，展示任务的具体内容和要求。',
-        created_at: task.created_at || '2024-01-15T09:00:00',
-        expected_start_time: task.expected_start_time || '2024-01-20T09:00:00',
-        actual_start_time: task.actual_start_time || '2024-01-22T10:30:00',
-        expected_end_time: task.expected_end_time || '2024-02-15T18:00:00',
-        actual_end_time: task.actual_end_time || null,
-        is_critical: task.is_critical !== undefined ? task.is_critical : Math.random() > 0.5,
-        completion_weight: task.completion_weight || Math.floor(Math.random() * 50) + 10,
-        manager_name: task.assignee || task.manager_name || '张三',
-        members: task.members || [
+    async showTaskDetails(task) {
+      // console.log('开始获取任务详情:', task);
+      try {
+        const token = localStorage.getItem('token');
+        // console.log('用户token状态:', token ? '已登录' : '未登录');
+        if (token) {
+          // 已登录用户获取真实任务详情
+          const response = await this.$axios.get(`/api/tasks/${task.id}`);
+          // console.log('获取到的任务详情响应:', response.data);
+          if (response.data.success) {
+            const taskData = response.data.data;
+            console.log('解析的任务数据:', taskData);
+            this.selectedTask = {
+              ...taskData,
+              title: taskData.title || taskData.name,
+              team_members: taskData.assigned_users || []
+            };
+          } else {
+            this.selectedTask = task;
+          }
+        } else {
+          // 未登录用户使用当前任务数据
+          this.selectedTask = task;
+        }
+      } catch (error) {
+        console.error('获取任务详情出错:', error);
+        this.selectedTask = task;
+      }
+      console.log('最终设置的任务详情:', this.selectedTask);
+      
+      // 如果没有分配用户数据，使用默认值
+      if (!this.selectedTask.team_members || this.selectedTask.team_members.length === 0) {
+        this.selectedTask.team_members = [
           {
             id: 1,
             name: '张三',

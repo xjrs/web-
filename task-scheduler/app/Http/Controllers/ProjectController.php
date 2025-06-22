@@ -106,7 +106,10 @@ class ProjectController extends Controller
                 $query->withPivot('role', 'joined_at');
             },
             'tasks' => function ($query) {
-                $query->with('assignedUsers');
+                $query->with(['assignedUsers' => function ($q) {
+                    $q->select('users.id', 'name', 'email')
+                      ->withPivot('role', 'work_description', 'assigned_at');
+                }]);
             }
         ]);
         

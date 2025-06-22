@@ -31,7 +31,10 @@ class TaskController extends Controller
     // 获取单个任务
     public function show(Task $task)
     {
-        return $task;
+        return $task->load(['assignedUsers' => function($query) {
+            $query->select('users.id', 'users.name', 'users.email')
+                  ->withPivot('role', 'work_description', 'assigned_at');
+        }]);
     }
 
     // 更新任务
