@@ -24,9 +24,11 @@ return new class extends Migration
             $table->timestamp('actual_end_time')->nullable(); // 实际结束时间
             $table->timestamp('updated_at')->useCurrent()->useCurrentOnUpdate(); // 更新时间
             $table->unsignedBigInteger('project_id')->nullable(); // 所属项目ID（可选）
+            $table->unsignedBigInteger('manager_id')->nullable(); // 任务负责人ID
             
             // 外键约束
             $table->foreign('project_id')->references('id')->on('projects')->onDelete('set null');
+            $table->foreign('manager_id')->references('id')->on('users')->onDelete('set null');
 
             
             // 索引

@@ -82,7 +82,6 @@
 - `user_id` - 用户ID
 - `task_id` - 任务ID
 - `role` - 角色（支持预设角色和自定义角色）
-- `is_manager` - 是否为任务负责人
 - `work_description` - 工作描述
 - `assigned_at` - 分配时间
 

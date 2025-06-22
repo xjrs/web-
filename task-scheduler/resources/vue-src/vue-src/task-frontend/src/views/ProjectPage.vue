@@ -33,11 +33,25 @@
             <div class="stat-label">总项目数</div>
           </div>
         </div>
+        <div class="stat-card planning">
+          <div class="stat-icon">📋</div>
+          <div class="stat-content">
+            <div class="stat-number">{{ projectStats.planning }}</div>
+            <div class="stat-label">规划中</div>
+          </div>
+        </div>
         <div class="stat-card active">
           <div class="stat-icon">🚀</div>
           <div class="stat-content">
             <div class="stat-number">{{ projectStats.active }}</div>
             <div class="stat-label">进行中</div>
+          </div>
+        </div>
+        <div class="stat-card on-hold">
+          <div class="stat-icon">⏸️</div>
+          <div class="stat-content">
+            <div class="stat-number">{{ projectStats.on_hold }}</div>
+            <div class="stat-label">暂停</div>
           </div>
         </div>
         <div class="stat-card completed">
@@ -47,11 +61,11 @@
             <div class="stat-label">已完成</div>
           </div>
         </div>
-        <div class="stat-card delayed">
-          <div class="stat-icon">⚠️</div>
+        <div class="stat-card cancelled">
+          <div class="stat-icon">❌</div>
           <div class="stat-content">
-            <div class="stat-number">{{ projectStats.delayed }}</div>
-            <div class="stat-label">延期项目</div>
+            <div class="stat-number">{{ projectStats.cancelled }}</div>
+            <div class="stat-label">已取消</div>
           </div>
         </div>
       </div>
@@ -66,8 +80,9 @@
             <option value="">全部</option>
             <option value="planning">规划中</option>
             <option value="active">进行中</option>
+            <option value="on_hold">暂停</option>
             <option value="completed">已完成</option>
-            <option value="paused">暂停</option>
+            <option value="cancelled">已取消</option>
           </select>
         </div>
         <div class="filter-group">
@@ -143,17 +158,17 @@
             
             <div class="project-meta">
               <div class="meta-item">
+                <span class="meta-icon">👨‍💼</span>
+                <span class="meta-text">{{ project.manager || '未分配' }}</span>
+              </div>
+              <div class="meta-item">
                 <span class="meta-icon">👤</span>
                 <span class="meta-text">{{ project.team_size || 0 }}人</span>
               </div>
               <div class="meta-item">
-                <span class="meta-icon">📅</span>
-                <span class="meta-text">{{ formatDate(project.due_date) }}</span>
-              </div>
-              <div class="meta-item">
                 <span class="meta-icon">⚡</span>
                 <span class="priority-tag" :class="getPriorityClass(project.priority)">
-                  {{ project.priority || '中' }}
+                  {{ getPriorityText(project.priority) }}
                 </span>
               </div>
             </div>
@@ -207,7 +222,6 @@
               <th>状态</th>
               <th>优先级</th>
               <th>负责人</th>
-              <th>截止日期</th>
               <th>进度</th>
               <th>操作</th>
             </tr>
@@ -236,7 +250,6 @@
                 </span>
               </td>
               <td>{{ project.manager || '未分配' }}</td>
-              <td>{{ formatDate(project.due_date) }}</td>
               <td>
                 <div class="progress-cell">
                   <div class="progress-bar small">
@@ -289,7 +302,7 @@
             <div class="overview-item">
               <div class="overview-label">优先级</div>
               <span class="priority-tag" :class="getPriorityClass(selectedProject.priority)">
-                {{ selectedProject.priority || '中' }}
+                {{ getPriorityText(selectedProject.priority) }}
               </span>
             </div>
             <div class="overview-item">
@@ -317,24 +330,28 @@
               v-for="task in selectedProject.tasks"
               :key="task.id"
               :class="getTaskStatusClass(task.status)"
+              @click="showTaskDetails(task)"
             >
-              <div class="task-checkbox">
-                <input 
-                  type="checkbox" 
-                  :checked="task.status === 'completed'"
-                  @change="toggleTaskStatus(task)"
-                />
-              </div>
-              <div class="task-content">
-                <div class="task-name">{{ task.name }}</div>
-                <div class="task-meta">
-                  <span class="task-assignee">{{ task.assignee || '未分配' }}</span>
-                  <span class="task-due">{{ formatDate(task.due_date) }}</span>
+              <div class="task-main-info">
+                <div class="task-header">
+                  <div class="task-title">{{ task.title || task.name }}</div>
+                  <div class="task-status-badge">
+                    <span class="status-dot" :class="getTaskStatusClass(task.status)"></span>
+                    {{ getTaskStatusText(task.status) }}
+                  </div>
                 </div>
-              </div>
-              <div class="task-status">
-                <span class="status-dot" :class="getTaskStatusClass(task.status)"></span>
-                {{ getTaskStatusText(task.status) }}
+                <div class="task-details">
+                  <div class="task-priority">
+                    <span class="priority-icon">⚡</span>
+                    <span class="priority-text" :class="getPriorityClass(task.priority)">
+                      {{ getPriorityText(task.priority) }}
+                    </span>
+                  </div>
+                  <div class="task-manager">
+                    <span class="manager-icon">👤</span>
+                    <span class="manager-text">{{ task.manager_name || '未分配' }}</span>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -342,6 +359,145 @@
           <div v-else class="empty-tasks">
             <div class="empty-icon">📝</div>
             <p>该项目暂无任务</p>
+          </div>
+        </div>
+
+        <!-- 时间信息部分 -->
+        <div class="time-section">
+          <h4 class="section-title">时间信息</h4>
+          <div class="time-grid">
+            <div class="time-item">
+              <div class="time-label">创建时间</div>
+              <div class="time-value">{{ formatDateTime(selectedProject.created_at) }}</div>
+            </div>
+            <div class="time-item">
+              <div class="time-label">预计开始时间</div>
+              <div class="time-value">{{ formatDateTime(selectedProject.expected_start_time) }}</div>
+            </div>
+            <div class="time-item">
+              <div class="time-label">实际开始时间</div>
+              <div class="time-value">{{ formatDateTime(selectedProject.actual_start_time) }}</div>
+            </div>
+            <div class="time-item">
+              <div class="time-label">预计结束时间</div>
+              <div class="time-value">{{ formatDateTime(selectedProject.expected_end_time) }}</div>
+            </div>
+            <div class="time-item">
+              <div class="time-label">实际结束时间</div>
+              <div class="time-value">{{ formatDateTime(selectedProject.actual_end_time) }}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Task Details Modal -->
+    <div class="modal-overlay" v-if="showTaskModal" @click="closeTaskModal">
+      <div class="modal-content task-modal" @click.stop>
+        <div class="modal-header">
+          <h3>任务详情</h3>
+          <button class="modal-close" @click="showTaskModal = false">×</button>
+        </div>
+        <div class="modal-body" v-if="selectedTask">
+          <!-- 基本信息 -->
+          <div class="task-basic-info">
+            <div class="info-row">
+              <div class="info-label">任务标题</div>
+              <div class="info-value">{{ selectedTask.title || selectedTask.name }}</div>
+            </div>
+            <div class="info-row">
+              <div class="info-label">任务描述</div>
+              <div class="info-value">{{ selectedTask.description || '暂无描述' }}</div>
+            </div>
+            <div class="info-row">
+              <div class="info-label">任务状态</div>
+              <div class="info-value">
+                <span class="status-badge" :class="getTaskStatusClass(selectedTask.status)">
+                  {{ getTaskStatusText(selectedTask.status) }}
+                </span>
+              </div>
+            </div>
+            <div class="info-row">
+              <div class="info-label">任务优先级</div>
+              <div class="info-value">
+                <span class="priority-tag" :class="getPriorityClass(selectedTask.priority)">
+                  {{ getPriorityText(selectedTask.priority) }}
+                </span>
+              </div>
+            </div>
+            <div class="info-row">
+              <div class="info-label">任务负责人</div>
+              <div class="info-value">{{ selectedTask.manager_name || '未分配' }}</div>
+            </div>
+          </div>
+
+          <!-- 时间信息 -->
+          <div class="task-time-info">
+            <h4>时间信息</h4>
+            <div class="time-grid">
+              <div class="time-item">
+                <div class="time-label">创建时间</div>
+                <div class="time-value">{{ formatDateTime(selectedTask.created_at) }}</div>
+              </div>
+              <div class="time-item">
+                <div class="time-label">预计开始时间</div>
+                <div class="time-value">{{ formatDateTime(selectedTask.expected_start_time) }}</div>
+              </div>
+              <div class="time-item">
+                <div class="time-label">实际开始时间</div>
+                <div class="time-value">{{ formatDateTime(selectedTask.actual_start_time) }}</div>
+              </div>
+              <div class="time-item">
+                <div class="time-label">预计结束时间</div>
+                <div class="time-value">{{ formatDateTime(selectedTask.expected_end_time) }}</div>
+              </div>
+              <div class="time-item">
+                <div class="time-label">实际结束时间</div>
+                <div class="time-value">{{ formatDateTime(selectedTask.actual_end_time) }}</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 项目关系信息 -->
+          <div class="task-project-info">
+            <h4>项目关系</h4>
+            <div class="project-relation">
+              <div class="relation-item">
+                <div class="relation-label">是否关键任务</div>
+                <div class="relation-value">
+                  <span class="critical-badge" :class="{ critical: selectedTask.is_critical }">
+                    {{ selectedTask.is_critical ? '是' : '否' }}
+                  </span>
+                </div>
+              </div>
+              <div class="relation-item">
+                <div class="relation-label">完成权重</div>
+                <div class="relation-value">{{ selectedTask.completion_weight || 0 }}%</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 任务成员 -->
+          <div class="task-members-info">
+            <h4>任务成员</h4>
+            <div class="members-list" v-if="selectedTask.members && selectedTask.members.length">
+              <div class="member-item" v-for="member in selectedTask.members" :key="member.id">
+                <div class="member-avatar">
+                  <span class="avatar-text">{{ getInitials(member.name) }}</span>
+                </div>
+                <div class="member-details">
+                  <div class="member-name">{{ member.name }}</div>
+                  <div class="member-email">{{ member.email }}</div>
+                  <div class="member-role">{{ member.role || '成员' }}</div>
+                  <div class="member-work" v-if="member.work_description">
+                    工作描述：{{ member.work_description }}
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div v-else class="no-members">
+              <p>暂无分配成员</p>
+            </div>
           </div>
         </div>
       </div>
@@ -384,26 +540,211 @@
             </div>
             <div class="form-group">
               <label>项目经理</label>
+              <div class="manager-selector">
+                <select v-model="newProject.manager_id" class="form-select" @change="onManagerChange">
+                  <option value="">请选择项目经理</option>
+                  <option :value="currentUser.id">{{ currentUser.name }} (我)</option>
+                  <option v-for="contact in contacts" :key="contact.id" :value="contact.id">
+                    {{ contact.name }}
+                  </option>
+                  <option value="add_new">通过邮箱添加新联系人</option>
+                </select>
+                <div v-if="showAddContactInput" class="add-contact-input">
+                  <input 
+                    type="email" 
+                    v-model="newContactEmail" 
+                    placeholder="请输入邮箱地址"
+                    class="form-input"
+                    @blur="addNewContact"
+                    @keyup.enter="addNewContact"
+                  />
+                  <button type="button" @click="cancelAddContact" class="btn-cancel">取消</button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>预计开始时间</label>
               <input 
-                type="text" 
-                v-model="newProject.manager" 
-                placeholder="请输入项目经理"
+                type="datetime-local" 
+                v-model="newProject.expected_start_time"
                 class="form-input"
               />
             </div>
-          </div>
-          <div class="form-group">
-            <label>截止日期</label>
-            <input 
-              type="date" 
-              v-model="newProject.due_date"
-              class="form-input"
-            />
+            <div class="form-group">
+              <label>预计结束时间</label>
+              <input 
+                type="datetime-local" 
+                v-model="newProject.expected_end_time"
+                class="form-input"
+              />
+            </div>
           </div>
         </div>
         <div class="modal-footer">
           <button class="btn btn-secondary" @click="showCreateModal = false">取消</button>
           <button class="btn btn-primary" @click="createProject">确认创建</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Edit Project Modal -->
+    <div class="modal-overlay" v-if="showEditModal" @click="closeEditModal">
+      <div class="modal-content large" @click.stop>
+        <div class="modal-header">
+          <h3>编辑项目</h3>
+          <button class="modal-close" @click="showEditModal = false">×</button>
+        </div>
+        <div class="modal-body">
+          <div class="edit-tabs">
+            <button 
+              class="tab-btn" 
+              :class="{ active: activeTab === 'basic' }"
+              @click="activeTab = 'basic'"
+            >
+              基本信息
+            </button>
+            <button 
+              class="tab-btn" 
+              :class="{ active: activeTab === 'members' }"
+              @click="activeTab = 'members'"
+            >
+              项目成员
+            </button>
+          </div>
+          
+          <!-- 基本信息标签页 -->
+          <div v-if="activeTab === 'basic'" class="tab-content">
+            <div class="form-group">
+              <label>项目名称</label>
+              <input 
+                type="text" 
+                v-model="editingProject.name" 
+                placeholder="请输入项目名称"
+                class="form-input"
+              />
+            </div>
+            <div class="form-group">
+              <label>项目描述</label>
+              <textarea 
+                v-model="editingProject.description" 
+                placeholder="请输入项目描述"
+                class="form-textarea"
+                rows="3"
+              ></textarea>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>项目状态</label>
+                <select v-model="editingProject.status" class="form-select">
+                  <option value="planning">规划中</option>
+                  <option value="active">进行中</option>
+                  <option value="on_hold">暂停</option>
+                  <option value="completed">已完成</option>
+                  <option value="cancelled">已取消</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>优先级</label>
+                <select v-model="editingProject.priority" class="form-select">
+                  <option value="urgent">紧急</option>
+                  <option value="high">高</option>
+                  <option value="medium">中</option>
+                  <option value="low">低</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-group">
+              <label>项目经理</label>
+              <div class="manager-selector">
+                <select v-model="editingProject.manager_id" class="form-select" @change="onEditManagerChange">
+                  <option value="">请选择项目经理</option>
+                  <option :value="currentUser.id">{{ currentUser.name }} (我)</option>
+                  <option v-for="contact in contacts" :key="contact.id" :value="contact.id">
+                    {{ contact.name }}
+                  </option>
+                  <option value="add_new">通过邮箱添加新联系人</option>
+                </select>
+                <div v-if="showEditAddContactInput" class="add-contact-input">
+                  <input 
+                    type="email" 
+                    v-model="editContactEmail" 
+                    placeholder="请输入邮箱地址"
+                    class="form-input"
+                    @blur="addNewEditContact"
+                    @keyup.enter="addNewEditContact"
+                  />
+                  <button type="button" @click="cancelEditAddContact" class="btn-cancel">取消</button>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <!-- 项目成员标签页 -->
+          <div v-if="activeTab === 'members'" class="tab-content">
+            <div class="members-section">
+              <div class="section-header">
+                <h4>当前项目成员</h4>
+                <button class="btn btn-primary btn-sm" @click="showAddMemberInput = true">添加成员</button>
+              </div>
+              
+              <!-- 添加成员输入框 -->
+              <div v-if="showAddMemberInput" class="add-member-form">
+                <div class="form-row">
+                  <div class="form-group">
+                    <select v-model="newMemberId" class="form-select">
+                      <option value="">从通讯录选择</option>
+                      <option v-for="contact in availableContacts" :key="contact.id" :value="contact.id">
+                        {{ contact.name }}
+                      </option>
+                    </select>
+                  </div>
+                  <div class="form-group">
+                    <input 
+                      type="email" 
+                      v-model="newMemberEmail" 
+                      placeholder="或输入邮箱地址"
+                      class="form-input"
+                    />
+                  </div>
+                  <div class="form-actions">
+                    <button class="btn btn-primary btn-sm" @click="addProjectMember">添加</button>
+                    <button class="btn btn-secondary btn-sm" @click="cancelAddMember">取消</button>
+                  </div>
+                </div>
+              </div>
+              
+              <!-- 成员列表 -->
+              <div class="members-list">
+                <div v-for="member in editingProject.members" :key="member.id" class="member-item">
+                  <div class="member-info">
+                    <div class="member-avatar">
+                      <span>{{ getProjectInitials(member.name) }}</span>
+                    </div>
+                    <div class="member-details">
+                      <div class="member-name">{{ member.name }}</div>
+                      <div class="member-email">{{ member.email }}</div>
+                      <div class="member-role">{{ member.role || '成员' }}</div>
+                    </div>
+                  </div>
+                  <div class="member-actions">
+                    <button 
+                      v-if="member.id !== editingProject.manager_id" 
+                      class="btn btn-danger btn-sm" 
+                      @click="removeMember(member.id)"
+                    >
+                      移除
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" @click="showEditModal = false">取消</button>
+          <button class="btn btn-primary" @click="updateProject">保存修改</button>
         </div>
       </div>
     </div>
@@ -438,11 +779,15 @@ export default {
           task_count: 12,
           completed_count: 8,
           progress: 67,
-          due_date: '2024-02-15',
+          created_at: '2024-01-01T09:00:00',
+          expected_start_time: '2024-01-05T09:00:00',
+          actual_start_time: '2024-01-08T10:30:00',
+          expected_end_time: '2024-02-15T18:00:00',
+          actual_end_time: null,
           tasks: [
-            { id: 1, name: 'UI设计', status: 'completed', assignee: '李设计', due_date: '2024-01-10' },
-            { id: 2, name: '前端开发', status: 'active', assignee: '王前端', due_date: '2024-01-20' },
-            { id: 3, name: '后端接口', status: 'pending', assignee: '赵后端', due_date: '2024-01-25' }
+            { id: 1, title: 'UI设计', name: 'UI设计', status: 'completed', priority: 'high', assignee: '李设计', due_date: '2024-01-10' },
+            { id: 2, title: '前端开发', name: '前端开发', status: 'active', priority: 'medium', assignee: '王前端', due_date: '2024-01-20' },
+            { id: 3, title: '后端接口', name: '后端接口', status: 'pending', priority: 'urgent', assignee: '赵后端', due_date: '2024-01-25' }
           ]
         },
         {
@@ -456,7 +801,11 @@ export default {
           task_count: 20,
           completed_count: 3,
           progress: 15,
-          due_date: '2024-03-30',
+          created_at: '2024-01-10T14:00:00',
+          expected_start_time: '2024-02-01T09:00:00',
+          actual_start_time: null,
+          expected_end_time: '2024-03-30T18:00:00',
+          actual_end_time: null,
           tasks: []
         },
         {
@@ -464,13 +813,53 @@ export default {
           name: '数据分析平台',
           description: '构建企业数据分析和可视化平台',
           status: 'completed',
-          priority: 'high',
+          priority: 'urgent',
           manager: '王五',
           team_size: 6,
           task_count: 15,
           completed_count: 15,
           progress: 100,
-          due_date: '2024-01-05',
+          created_at: '2023-12-01T09:00:00',
+          expected_start_time: '2023-12-05T09:00:00',
+          actual_start_time: '2023-12-05T09:15:00',
+          expected_end_time: '2024-01-05T18:00:00',
+          actual_end_time: '2024-01-03T16:30:00',
+          tasks: []
+        },
+        {
+          id: 4,
+          name: '客户管理系统',
+          description: '开发CRM客户关系管理系统',
+          status: 'on_hold',
+          priority: 'low',
+          manager: '赵六',
+          team_size: 4,
+          task_count: 8,
+          completed_count: 2,
+          progress: 25,
+          created_at: '2024-01-15T11:00:00',
+          expected_start_time: '2024-01-20T09:00:00',
+          actual_start_time: '2024-01-22T10:00:00',
+          expected_end_time: '2024-04-15T18:00:00',
+          actual_end_time: null,
+          tasks: []
+        },
+        {
+          id: 5,
+          name: '旧版系统迁移',
+          description: '将旧版系统数据迁移到新平台',
+          status: 'cancelled',
+          priority: 'medium',
+          manager: '孙七',
+          team_size: 3,
+          task_count: 6,
+          completed_count: 1,
+          progress: 17,
+          created_at: '2023-11-15T13:00:00',
+          expected_start_time: '2023-12-01T09:00:00',
+          actual_start_time: '2023-12-03T09:30:00',
+          expected_end_time: '2024-01-31T18:00:00',
+          actual_end_time: null,
           tasks: []
         }
       ],
@@ -479,37 +868,284 @@ export default {
       filterStatus: '',
       filterPriority: '',
       searchText: '',
+      showCreateModal: false,
+      showEditModal: false,
+      editingProject: {},
+      // 演示用户数据
+      currentUser: {
+        id: 1,
+        name: '张三',
+        email: 'zhangsan@example.com'
+      },
+      // 演示通讯录数据
+      contacts: [
+        { id: 2, name: '李四', email: 'lisi@example.com' },
+        { id: 3, name: '王五', email: 'wangwu@example.com' },
+        { id: 4, name: '赵六', email: 'zhaoliu@example.com' },
+        { id: 5, name: '钱七', email: 'qianqi@example.com' },
+        { id: 6, name: '孙八', email: 'sunba@example.com' },
+        { id: 7, name: '周九', email: 'zhoujiu@example.com' },
+        { id: 8, name: '吴十', email: 'wushi@example.com' }
+      ],
       newProject: {
         name: '',
         description: '',
         priority: 'medium',
-        manager: '',
-        due_date: ''
-      }
+        manager_id: '',
+        manager_name: '',
+        expected_start_time: '',
+        expected_end_time: ''
+      },
+      newContactEmail: '',
+      showAddContactInput: false,
+      // 编辑弹窗相关
+      activeTab: 'basic',
+      showEditAddContactInput: false,
+      editContactEmail: '',
+      showAddMemberInput: false,
+      newMemberId: '',
+      newMemberEmail: '',
+      // 任务详情弹窗相关
+      showTaskModal: false,
+      selectedTask: null
     }
   },
   computed: {
     projectStats() {
       return {
         total: this.projects.length,
+        planning: this.projects.filter(p => p.status === 'planning').length,
         active: this.projects.filter(p => p.status === 'active').length,
+        on_hold: this.projects.filter(p => p.status === 'on_hold').length,
         completed: this.projects.filter(p => p.status === 'completed').length,
-        delayed: this.projects.filter(p => this.isProjectDelayed(p)).length
+        cancelled: this.projects.filter(p => p.status === 'cancelled').length
       }
+    },
+    availableContacts() {
+      if (!this.editingProject.members) return this.contacts;
+      const memberIds = this.editingProject.members.map(m => m.id);
+      return this.contacts.filter(contact => !memberIds.includes(contact.id));
     }
   },
   methods: {
-    fetchProjects() {
+    async fetchProjects() {
       this.loading = true;
-      // 模拟API调用
-      setTimeout(() => {
-        this.projects = this.projects.map(p => ({
-          ...p,
-          progress: p.task_count ? Math.round((p.completed_count / p.task_count) * 100) : 0
-        }));
+      try {
+        const token = localStorage.getItem('token');
+        
+        if (token) {
+          // 已登录用户获取真实数据
+          const response = await this.$axios.get('/api/projects');
+          
+          if (response.data.success) {
+            this.projects = response.data.data;
+            this.filterProjects();
+          } else {
+            console.error('获取项目数据失败:', response.data.message);
+            // API调用失败时使用默认数据
+            this.projects = this.getDefaultProjects();
+            this.filterProjects();
+          }
+        } else {
+          // 未登录用户直接使用前端演示数据
+          this.projects = this.getDefaultProjects();
+          this.filterProjects();
+        }
+      } catch (error) {
+        console.error('获取项目数据出错:', error);
+        // 如果API调用失败，使用默认数据
+        this.projects = this.getDefaultProjects();
         this.filterProjects();
+      } finally {
         this.loading = false;
-      }, 500);
+      }
+    },
+    
+    async fetchContacts() {
+      try {
+        const token = localStorage.getItem('token');
+        
+        if (token) {
+          // 已登录用户获取真实通讯录数据
+          const response = await this.$axios.get('/api/contacts');
+          
+          if (response.data.success) {
+            this.contacts = response.data.data;
+          } else {
+            console.error('获取通讯录数据失败:', response.data.message);
+          }
+        }
+        // 未登录用户使用默认演示数据（已在data中定义）
+      } catch (error) {
+        console.error('获取通讯录数据出错:', error);
+        // 保持使用默认演示数据
+      }
+    },
+    
+    getDefaultProjects() {
+      return [
+        {
+          id: 1,
+          name: '企业官网重构',
+          description: '重新设计和开发企业官方网站，提升用户体验和品牌形象。包括响应式设计、性能优化、SEO优化、内容管理系统升级等。',
+          status: 'active',
+          priority: 'high',
+          expected_start_time: '2024-01-01T00:00:00.000000Z',
+          expected_end_time: '2024-02-15T00:00:00.000000Z',
+          actual_start_time: '2024-01-01T00:00:00.000000Z',
+          actual_end_time: null,
+          created_at: '2024-01-01T00:00:00.000000Z',
+          updated_at: '2024-01-15T00:00:00.000000Z',
+          stats: {
+            total_tasks: 24,
+            completed_tasks: 16,
+            in_progress_tasks: 6,
+            pending_tasks: 2,
+            team_size: 5,
+            progress: 67,
+            is_delayed: false
+          },
+          manager: '张三',
+          team_members: ['张三', '李四', '王五', '赵六', '钱七'],
+          tasks: [
+            { title: '需求分析与规划', status: 'completed', priority: 'high' },
+            { title: '原型设计', status: 'completed', priority: 'high' },
+            { title: 'UI设计', status: 'completed', priority: 'high' },
+            { title: '首页开发', status: 'completed', priority: 'high' },
+            { title: '产品页面开发', status: 'completed', priority: 'medium' },
+            { title: '新闻模块开发', status: 'completed', priority: 'medium' },
+            { title: '后台管理系统开发', status: 'in_progress', priority: 'high' },
+            { title: '性能优化', status: 'pending', priority: 'medium' }
+          ]
+        },
+        {
+          id: 2,
+          name: '移动端APP开发',
+          description: '开发跨平台移动应用，支持iOS和Android系统。采用Flutter框架，实现用户认证、消息推送、数据同步、离线存储等核心功能。',
+          status: 'planning',
+          priority: 'medium',
+          expected_start_time: '2024-02-01T00:00:00.000000Z',
+          expected_end_time: '2024-03-30T00:00:00.000000Z',
+          actual_start_time: null,
+          actual_end_time: null,
+          created_at: '2024-01-20T00:00:00.000000Z',
+          updated_at: '2024-01-25T00:00:00.000000Z',
+          stats: {
+            total_tasks: 30,
+            completed_tasks: 5,
+            in_progress_tasks: 3,
+            pending_tasks: 22,
+            team_size: 8,
+            progress: 15,
+            is_delayed: false
+          },
+          manager: '李四',
+          team_members: ['李四', '王五', '赵六', '钱七', '孙八', '周九', '吴十', '郑一'],
+          tasks: [
+            { title: '项目初始化与配置', status: 'completed', priority: 'high' },
+            { title: '用户认证模块', status: 'in_progress', priority: 'high' },
+            { title: '首页UI开发', status: 'in_progress', priority: 'medium' },
+            { title: '数据同步功能', status: 'pending', priority: 'high' },
+            { title: '消息推送系统', status: 'pending', priority: 'medium' },
+            { title: '离线存储实现', status: 'pending', priority: 'medium' }
+          ]
+        },
+        {
+          id: 3,
+          name: '数据分析平台',
+          description: '构建企业数据分析和可视化平台，支持多维度数据展示。整合各业务系统数据，提供实时监控、趋势分析、预测分析等功能。',
+          status: 'completed',
+          priority: 'high',
+          expected_start_time: '2023-11-01T00:00:00.000000Z',
+          expected_end_time: '2024-01-05T00:00:00.000000Z',
+          actual_start_time: '2023-11-01T00:00:00.000000Z',
+          actual_end_time: '2024-01-05T00:00:00.000000Z',
+          created_at: '2023-11-01T00:00:00.000000Z',
+          updated_at: '2024-01-05T00:00:00.000000Z',
+          stats: {
+            total_tasks: 20,
+            completed_tasks: 20,
+            in_progress_tasks: 0,
+            pending_tasks: 0,
+            team_size: 6,
+            progress: 100,
+            is_delayed: false
+          },
+          manager: '王五',
+          team_members: ['王五', '赵六', '钱七', '孙八', '周九', '吴十'],
+          tasks: [
+            { title: '数据接口开发', status: 'completed', priority: 'high' },
+            { title: '数据清洗与转换', status: 'completed', priority: 'high' },
+            { title: '可视化组件开发', status: 'completed', priority: 'high' },
+            { title: '实时监控模块', status: 'completed', priority: 'high' },
+            { title: '报表生成系统', status: 'completed', priority: 'medium' },
+            { title: '用户权限管理', status: 'completed', priority: 'medium' }
+          ]
+        },
+        {
+          id: 4,
+          name: '智能客服系统',
+          description: '开发基于AI的智能客服系统，集成自然语言处理、知识图谱、情感分析等技术，提供7x24小时智能客服服务。',
+          status: 'on_hold',
+          priority: 'urgent',
+          expected_start_time: '2024-01-10T00:00:00.000000Z',
+          expected_end_time: '2024-03-20T00:00:00.000000Z',
+          actual_start_time: '2024-01-10T00:00:00.000000Z',
+          actual_end_time: null,
+          created_at: '2024-01-05T00:00:00.000000Z',
+          updated_at: '2024-01-28T00:00:00.000000Z',
+          stats: {
+            total_tasks: 18,
+            completed_tasks: 6,
+            in_progress_tasks: 4,
+            pending_tasks: 8,
+            team_size: 7,
+            progress: 33,
+            is_delayed: true
+          },
+          manager: '赵六',
+          team_members: ['赵六', '钱七', '孙八', '周九', '吴十', '郑一', '冯二'],
+          tasks: [
+            { title: 'NLP引擎集成', status: 'completed', priority: 'urgent' },
+            { title: '知识库构建', status: 'in_progress', priority: 'high' },
+            { title: '对话流程设计', status: 'in_progress', priority: 'high' },
+            { title: '情感分析模块', status: 'pending', priority: 'medium' },
+            { title: '多轮对话支持', status: 'pending', priority: 'high' }
+          ]
+        },
+        {
+          id: 5,
+          name: '供应链管理系统',
+          description: '构建现代化供应链管理系统，实现采购、库存、物流全流程数字化管理，提供实时追踪、智能预警、数据分析等功能。',
+          status: 'cancelled',
+          priority: 'medium',
+          expected_start_time: '2023-12-01T00:00:00.000000Z',
+          expected_end_time: '2024-02-28T00:00:00.000000Z',
+          actual_start_time: '2023-12-01T00:00:00.000000Z',
+          actual_end_time: '2024-01-15T00:00:00.000000Z',
+          created_at: '2023-11-25T00:00:00.000000Z',
+          updated_at: '2024-01-15T00:00:00.000000Z',
+          stats: {
+            total_tasks: 25,
+            completed_tasks: 8,
+            in_progress_tasks: 0,
+            pending_tasks: 17,
+            team_size: 10,
+            progress: 32,
+            is_delayed: true
+          },
+          manager: '钱七',
+          team_members: ['钱七', '孙八', '周九', '吴十', '郑一', '冯二', '陈三', '楚四', '魏五', '蒋六'],
+          tasks: [
+            { title: '需求调研', status: 'completed', priority: 'high' },
+            { title: '系统架构设计', status: 'completed', priority: 'high' },
+            { title: '数据库设计', status: 'completed', priority: 'high' },
+            { title: '采购模块开发', status: 'pending', priority: 'medium' },
+            { title: '库存管理模块', status: 'pending', priority: 'medium' },
+            { title: '物流跟踪系统', status: 'pending', priority: 'medium' }
+          ]
+        }
+      ];
     },
     
     filterProjects() {
@@ -533,41 +1169,85 @@ export default {
       this.filteredProjects = filtered;
     },
     
-    selectProject(project) {
-      // 模拟API调用获取任务详情
-      this.selectedProject = { ...project };
+    async selectProject(project) {
+      try {
+        const token = localStorage.getItem('token');
+        let response;
+        
+        if (token) {
+          // 已登录用户获取真实项目详情
+          response = await this.$axios.get(`/api/projects/${project.id}`);
+          if (response.data.success) {
+            this.selectedProject = response.data.data;
+          } else {
+            this.selectedProject = { ...project };
+          }
+        } else {
+          // 未登录用户使用当前项目数据
+          this.selectedProject = { ...project };
+        }
+      } catch (error) {
+        console.error('获取项目详情出错:', error);
+        this.selectedProject = { ...project };
+      }
     },
     
     refreshProjects() {
       this.fetchProjects();
     },
     
-    createProject() {
-      if (!this.newProject.name.trim()) {
-        alert('请输入项目名称');
+    async createProject() {
+      if (!this.newProject.name || !this.newProject.description) {
+        alert('请填写项目名称和描述');
         return;
       }
       
-      const newId = Math.max(...this.projects.map(p => p.id)) + 1;
-      const projectToAdd = {
-        ...this.newProject,
-        id: newId,
-        status: 'planning',
-        task_count: 0,
-        completed_count: 0,
-        progress: 0,
-        team_size: 1,
-        tasks: []
-      };
+      const token = localStorage.getItem('token');
+      if (!token) {
+        alert('请先登录后再创建项目');
+        return;
+      }
       
-      this.projects.push(projectToAdd);
-      this.filterProjects();
-      this.resetNewProject();
-      this.showCreateModal = false;
+      try {
+         const response = await this.$axios.post('/api/projects', this.newProject);
+        
+        if (response.data.success) {
+          // 重新获取项目列表
+          await this.fetchProjects();
+          
+          // 重置表单
+          this.newProject = {
+            name: '',
+            description: '',
+            priority: 'medium',
+            manager: '',
+            expected_start_time: '',
+            expected_end_time: ''
+          };
+          
+          this.showCreateModal = false;
+          alert('项目创建成功！');
+        } else {
+          alert('创建项目失败: ' + response.data.message);
+        }
+      } catch (error) {
+        console.error('创建项目出错:', error);
+        alert('创建项目失败，请稍后重试');
+      }
     },
     
     editProject(project) {
-      console.log('编辑项目:', project);
+      // 深拷贝项目数据，避免直接修改原数据
+      this.editingProject = {
+        ...project,
+        members: project.members || [
+          { id: project.manager_id || 1, name: project.manager || '张三', email: 'zhangsan@example.com', role: '项目经理' },
+          { id: 2, name: '李四', email: 'lisi@example.com', role: '开发工程师' },
+          { id: 3, name: '王五', email: 'wangwu@example.com', role: '测试工程师' }
+        ]
+      };
+      this.activeTab = 'basic';
+      this.showEditModal = true;
     },
     
     deleteProject(project) {
@@ -598,9 +1278,222 @@ export default {
         name: '',
         description: '',
         priority: 'medium',
-        manager: '',
-        due_date: ''
+        manager_id: '',
+        manager_name: '',
+        expected_start_time: '',
+        expected_end_time: ''
       };
+    },
+    
+    // 新建项目经理选择相关方法
+    onManagerChange() {
+      if (this.newProject.manager_id === 'add_new') {
+        this.showAddContactInput = true;
+        this.newProject.manager_id = '';
+      } else {
+        this.showAddContactInput = false;
+        // 设置经理名称
+        if (this.newProject.manager_id === this.currentUser.id) {
+          this.newProject.manager_name = this.currentUser.name;
+        } else {
+          const contact = this.contacts.find(c => c.id === this.newProject.manager_id);
+          this.newProject.manager_name = contact ? contact.name : '';
+        }
+      }
+    },
+    
+    async addNewContact() {
+      if (this.newContactEmail && this.isValidEmail(this.newContactEmail)) {
+        try {
+          const token = localStorage.getItem('token');
+          
+          if (token) {
+            // 已登录用户调用API添加联系人
+            const response = await this.$axios.post('/api/contacts/add-by-email', {
+              email: this.newContactEmail,
+              contact_name: this.newContactEmail.split('@')[0]
+            });
+            
+            if (response.data.success) {
+              const newContact = response.data.data;
+              this.contacts.push(newContact);
+              this.newProject.manager_id = newContact.id;
+              this.newProject.manager_name = newContact.name;
+              this.$message.success('联系人添加成功');
+            } else {
+              this.$message.error(response.data.message || '添加联系人失败');
+            }
+          } else {
+            // 未登录用户使用本地数据
+            const newContact = {
+              id: Date.now(),
+              name: this.newContactEmail.split('@')[0],
+              email: this.newContactEmail
+            };
+            this.contacts.push(newContact);
+            this.newProject.manager_id = newContact.id;
+            this.newProject.manager_name = newContact.name;
+          }
+          
+          this.newContactEmail = '';
+          this.showAddContactInput = false;
+        } catch (error) {
+          console.error('添加联系人出错:', error);
+          this.$message.error('添加联系人失败');
+        }
+      }
+    },
+    
+    cancelAddContact() {
+      this.newContactEmail = '';
+      this.showAddContactInput = false;
+    },
+    
+    // 编辑项目相关方法
+    onEditManagerChange() {
+      if (this.editingProject.manager_id === 'add_new') {
+        this.showEditAddContactInput = true;
+        this.editingProject.manager_id = '';
+      } else {
+        this.showEditAddContactInput = false;
+        // 设置经理名称
+        if (this.editingProject.manager_id === this.currentUser.id) {
+          this.editingProject.manager_name = this.currentUser.name;
+        } else {
+          const contact = this.contacts.find(c => c.id === this.editingProject.manager_id);
+          this.editingProject.manager_name = contact ? contact.name : '';
+        }
+      }
+    },
+    
+    async addNewEditContact() {
+      if (this.editContactEmail && this.isValidEmail(this.editContactEmail)) {
+        try {
+          const token = localStorage.getItem('token');
+          
+          if (token) {
+            // 已登录用户调用API添加联系人
+            const response = await this.$axios.post('/api/contacts/add-by-email', {
+              email: this.editContactEmail,
+              contact_name: this.editContactEmail.split('@')[0]
+            });
+            
+            if (response.data.success) {
+              const newContact = response.data.data;
+              this.contacts.push(newContact);
+              this.editingProject.manager_id = newContact.id;
+              this.editingProject.manager_name = newContact.name;
+              this.$message.success('联系人添加成功');
+            } else {
+              this.$message.error(response.data.message || '添加联系人失败');
+            }
+          } else {
+            // 未登录用户使用本地数据
+            const newContact = {
+              id: Date.now(),
+              name: this.editContactEmail.split('@')[0],
+              email: this.editContactEmail
+            };
+            this.contacts.push(newContact);
+            this.editingProject.manager_id = newContact.id;
+            this.editingProject.manager_name = newContact.name;
+          }
+          
+          this.editContactEmail = '';
+          this.showEditAddContactInput = false;
+        } catch (error) {
+          console.error('添加联系人出错:', error);
+          this.$message.error('添加联系人失败');
+        }
+      }
+    },
+    
+    cancelEditAddContact() {
+      this.editContactEmail = '';
+      this.showEditAddContactInput = false;
+    },
+    
+    addProjectMember() {
+      let newMember = null;
+      
+      if (this.newMemberId) {
+        // 从通讯录添加
+        const contact = this.contacts.find(c => c.id === this.newMemberId);
+        if (contact) {
+          newMember = {
+            id: contact.id,
+            name: contact.name,
+            email: contact.email,
+            role: '成员'
+          };
+        }
+      } else if (this.newMemberEmail && this.isValidEmail(this.newMemberEmail)) {
+        // 通过邮箱添加
+        newMember = {
+          id: Date.now(),
+          name: this.newMemberEmail.split('@')[0],
+          email: this.newMemberEmail,
+          role: '成员'
+        };
+        // 同时添加到通讯录
+        this.contacts.push({
+          id: newMember.id,
+          name: newMember.name,
+          email: newMember.email
+        });
+      }
+      
+      if (newMember) {
+        if (!this.editingProject.members) {
+          this.editingProject.members = [];
+        }
+        this.editingProject.members.push(newMember);
+        this.cancelAddMember();
+      }
+    },
+    
+    cancelAddMember() {
+      this.newMemberId = '';
+      this.newMemberEmail = '';
+      this.showAddMemberInput = false;
+    },
+    
+    removeMember(memberId) {
+      if (confirm('确定要移除该成员吗？')) {
+        this.editingProject.members = this.editingProject.members.filter(m => m.id !== memberId);
+      }
+    },
+    
+    updateProject() {
+      // 更新项目数据
+      const projectIndex = this.projects.findIndex(p => p.id === this.editingProject.id);
+      if (projectIndex !== -1) {
+        this.projects[projectIndex] = { ...this.editingProject };
+        this.filterProjects();
+        
+        // 如果当前选中的是被编辑的项目，更新选中项目
+        if (this.selectedProject && this.selectedProject.id === this.editingProject.id) {
+          this.selectedProject = { ...this.editingProject };
+        }
+      }
+      
+      this.showEditModal = false;
+      alert('项目更新成功！');
+    },
+    
+    closeEditModal() {
+      this.showEditModal = false;
+      this.activeTab = 'basic';
+      this.showEditAddContactInput = false;
+      this.showAddMemberInput = false;
+      this.editContactEmail = '';
+      this.newMemberId = '';
+      this.newMemberEmail = '';
+    },
+    
+    isValidEmail(email) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      return emailRegex.test(email);
     },
     
     closeCreateModal() {
@@ -626,25 +1519,39 @@ export default {
       const texts = {
         'planning': '规划中',
         'active': '进行中',
+        'on_hold': '暂停',
         'completed': '已完成',
-        'paused': '暂停'
+        'cancelled': '已取消'
       };
       return texts[status] || status;
     },
     
     getPriorityClass(priority) {
       const classes = {
+        'urgent': 'priority-urgent',
         'high': 'priority-high',
         'medium': 'priority-medium',
         'low': 'priority-low'
       };
       return classes[priority] || '';
     },
+
+    getPriorityText(priority) {
+      const texts = {
+        'urgent': '紧急',
+        'high': '高',
+        'medium': '中',
+        'low': '低'
+      };
+      return texts[priority] || '中';
+    },
     
     getProgressClass(progress) {
-      if (progress >= 80) return 'progress-high';
+      if (progress >= 90) return 'progress-excellent';
+      if (progress >= 75) return 'progress-high';
       if (progress >= 50) return 'progress-medium';
-      return 'progress-low';
+      if (progress >= 25) return 'progress-low';
+      return 'progress-minimal';
     },
     
     getProjectStatusClass(status) {
@@ -669,17 +1576,82 @@ export default {
       const date = new Date(dateString);
       return date.toLocaleDateString('zh-CN');
     },
+
+    formatDateTime(dateString) {
+      if (!dateString) return '未设置';
+      const date = new Date(dateString);
+      return date.toLocaleString('zh-CN', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    },
     
     isProjectDelayed(project) {
       if (!project.due_date) return false;
       const today = new Date();
       const dueDate = new Date(project.due_date);
       return today > dueDate && project.status !== 'completed';
+    },
+
+    // 任务详情相关方法
+    showTaskDetails(task) {
+      // 模拟完整的任务数据
+      this.selectedTask = {
+        ...task,
+        title: task.title || task.name,
+        description: task.description || '这是一个示例任务描述，展示任务的具体内容和要求。',
+        created_at: task.created_at || '2024-01-15T09:00:00',
+        expected_start_time: task.expected_start_time || '2024-01-20T09:00:00',
+        actual_start_time: task.actual_start_time || '2024-01-22T10:30:00',
+        expected_end_time: task.expected_end_time || '2024-02-15T18:00:00',
+        actual_end_time: task.actual_end_time || null,
+        is_critical: task.is_critical !== undefined ? task.is_critical : Math.random() > 0.5,
+        completion_weight: task.completion_weight || Math.floor(Math.random() * 50) + 10,
+        manager_name: task.assignee || task.manager_name || '张三',
+        members: task.members || [
+          {
+            id: 1,
+            name: '张三',
+            email: 'zhangsan@example.com',
+            role: '项目经理',
+            work_description: '负责项目整体规划和进度管理'
+          },
+          {
+            id: 2,
+            name: '李四',
+            email: 'lisi@example.com',
+            role: '开发工程师',
+            work_description: '负责前端界面开发和用户交互实现'
+          },
+          {
+            id: 3,
+            name: '王五',
+            email: 'wangwu@example.com',
+            role: '测试工程师',
+            work_description: '负责功能测试和质量保证'
+          }
+        ]
+      };
+      this.showTaskModal = true;
+    },
+
+    closeTaskModal() {
+      this.showTaskModal = false;
+      this.selectedTask = null;
+    },
+
+    getInitials(name) {
+      if (!name) return '';
+      return name.length > 1 ? name.substring(0, 2) : name;
     }
   },
   
   mounted() {
     this.fetchProjects();
+    this.fetchContacts();
   },
   
   watch: {
@@ -796,7 +1768,7 @@ export default {
 
 .stats-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 1.5rem;
 }
 
@@ -818,15 +1790,23 @@ export default {
   border-left: 4px solid #6366f1;
 }
 
+.stat-card.planning {
+  border-left: 4px solid #8b5cf6;
+}
+
 .stat-card.active {
   border-left: 4px solid #10b981;
+}
+
+.stat-card.on-hold {
+  border-left: 4px solid #f59e0b;
 }
 
 .stat-card.completed {
   border-left: 4px solid #059669;
 }
 
-.stat-card.delayed {
+.stat-card.cancelled {
   border-left: 4px solid #ef4444;
 }
 
@@ -1103,6 +2083,11 @@ export default {
   font-weight: 600;
 }
 
+.priority-urgent {
+  background: #fecaca;
+  color: #dc2626;
+}
+
 .priority-high {
   background: #fee2e2;
   color: #991b1b;
@@ -1186,16 +2171,29 @@ export default {
   transition: width 0.3s ease;
 }
 
-.progress-high {
+.progress-excellent {
   background: linear-gradient(90deg, #059669, #10b981);
+  box-shadow: 0 2px 4px rgba(5, 150, 105, 0.3);
+}
+
+.progress-high {
+  background: linear-gradient(90deg, #0891b2, #06b6d4);
+  box-shadow: 0 2px 4px rgba(8, 145, 178, 0.3);
 }
 
 .progress-medium {
   background: linear-gradient(90deg, #d97706, #f59e0b);
+  box-shadow: 0 2px 4px rgba(217, 119, 6, 0.3);
 }
 
 .progress-low {
   background: linear-gradient(90deg, #dc2626, #ef4444);
+  box-shadow: 0 2px 4px rgba(220, 38, 38, 0.3);
+}
+
+.progress-minimal {
+  background: linear-gradient(90deg, #64748b, #94a3b8);
+  box-shadow: 0 2px 4px rgba(100, 116, 139, 0.3);
 }
 
 .card-actions {
@@ -1407,6 +2405,62 @@ export default {
   font-weight: 600;
   color: #1e293b;
   font-size: 1.1rem;
+}
+
+/* Time Section */
+.time-section {
+  margin-bottom: 2rem;
+  padding: 1.5rem;
+  background: #f8fafc;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+}
+
+.section-title {
+  margin: 0 0 1.5rem 0;
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: #1e293b;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.section-title::before {
+  content: '🕒';
+  font-size: 1.1rem;
+}
+
+.time-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+}
+
+.time-item {
+  background: white;
+  padding: 1rem;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  transition: all 0.2s ease;
+}
+
+.time-item:hover {
+  border-color: #cbd5e1;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.time-label {
+  font-size: 0.85rem;
+  color: #64748b;
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+}
+
+.time-value {
+  font-weight: 600;
+  color: #1e293b;
+  font-size: 0.95rem;
 }
 
 .tasks-section {
@@ -1714,6 +2768,430 @@ export default {
   .modern-table th,
   .modern-table td {
     padding: 0.75rem 0.5rem;
+  }
+}
+
+/* 编辑弹窗样式 */
+.modal-content.large {
+  max-width: 800px;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.edit-tabs {
+  display: flex;
+  border-bottom: 2px solid #e5e7eb;
+  margin-bottom: 1.5rem;
+}
+
+.tab-btn {
+  padding: 0.75rem 1.5rem;
+  border: none;
+  background: none;
+  color: #6b7280;
+  font-weight: 500;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all 0.2s;
+}
+
+.tab-btn.active {
+  color: #3b82f6;
+  border-bottom-color: #3b82f6;
+}
+
+.tab-btn:hover {
+  color: #3b82f6;
+}
+
+.tab-content {
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* 项目经理选择器样式 */
+.manager-selector {
+  position: relative;
+}
+
+.add-contact-input {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  align-items: center;
+}
+
+.btn-cancel {
+  padding: 0.5rem 1rem;
+  background: #ef4444;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.875rem;
+}
+
+.btn-cancel:hover {
+  background: #dc2626;
+}
+
+/* 成员管理样式 */
+.members-section {
+  background: #f8fafc;
+  border-radius: 8px;
+  padding: 1.5rem;
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.section-header h4 {
+  margin: 0;
+  color: #1e293b;
+}
+
+.btn-sm {
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+}
+
+.add-member-form {
+  background: white;
+  border-radius: 8px;
+  padding: 1rem;
+  margin-bottom: 1rem;
+  border: 1px solid #e5e7eb;
+}
+
+.form-actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.members-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.member-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem;
+  background: white;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+}
+
+.member-info {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.member-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: 600;
+  font-size: 0.875rem;
+}
+
+.member-details {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.member-name {
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.member-email {
+  font-size: 0.875rem;
+  color: #6b7280;
+}
+
+.member-role {
+  font-size: 0.75rem;
+  color: #3b82f6;
+  background: #eff6ff;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  display: inline-block;
+}
+
+.member-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.btn-danger {
+  background: #ef4444;
+  color: white;
+}
+
+.btn-danger:hover {
+  background: #dc2626;
+}
+
+/* 任务详情弹窗样式 */
+.task-modal {
+  max-width: 800px;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.task-basic-info {
+  margin-bottom: 2rem;
+}
+
+.info-row {
+  display: flex;
+  margin-bottom: 1rem;
+  align-items: flex-start;
+}
+
+.info-label {
+  width: 120px;
+  font-weight: 600;
+  color: #333;
+  flex-shrink: 0;
+}
+
+.info-value {
+  flex: 1;
+  color: #666;
+}
+
+.status-badge {
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.priority-tag {
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.priority-urgent {
+  background-color: #fee2e2;
+  color: #dc2626;
+}
+
+.priority-high {
+  background-color: #fef3c7;
+  color: #d97706;
+}
+
+.priority-medium {
+  background-color: #dbeafe;
+  color: #2563eb;
+}
+
+.priority-low {
+  background-color: #f3f4f6;
+  color: #6b7280;
+}
+
+.task-time-info {
+  margin-bottom: 2rem;
+}
+
+.task-time-info h4 {
+  margin-bottom: 1rem;
+  color: #333;
+  font-size: 16px;
+}
+
+.time-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+}
+
+.time-item {
+  background: #f8fafc;
+  padding: 12px;
+  border-radius: 6px;
+}
+
+.time-label {
+  font-size: 12px;
+  color: #64748b;
+  margin-bottom: 4px;
+}
+
+.time-value {
+  font-size: 14px;
+  color: #334155;
+  font-weight: 500;
+}
+
+.task-project-info {
+  margin-bottom: 2rem;
+}
+
+.task-project-info h4 {
+  margin-bottom: 1rem;
+  color: #333;
+  font-size: 16px;
+}
+
+.project-relation {
+  display: flex;
+  gap: 2rem;
+}
+
+.relation-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.relation-label {
+  font-size: 14px;
+  color: #64748b;
+}
+
+.relation-value {
+  font-size: 14px;
+  color: #334155;
+  font-weight: 500;
+}
+
+.critical-badge {
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  background-color: #f3f4f6;
+  color: #6b7280;
+}
+
+.critical-badge.critical {
+  background-color: #fee2e2;
+  color: #dc2626;
+}
+
+.task-members-info h4 {
+  margin-bottom: 1rem;
+  color: #333;
+  font-size: 16px;
+}
+
+.task-members-info .members-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.task-members-info .member-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px;
+  background: #f8fafc;
+  border-radius: 8px;
+  border: none;
+}
+
+.task-members-info .member-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.task-members-info .avatar-text {
+  color: white;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.task-members-info .member-details {
+  flex: 1;
+}
+
+.task-members-info .member-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: #334155;
+  margin-bottom: 2px;
+}
+
+.task-members-info .member-email {
+  font-size: 12px;
+  color: #64748b;
+  margin-bottom: 2px;
+}
+
+.task-members-info .member-role {
+  font-size: 12px;
+  color: #3b82f6;
+  margin-bottom: 4px;
+  background: none;
+  padding: 0;
+}
+
+.member-work {
+  font-size: 12px;
+  color: #64748b;
+  line-height: 1.4;
+}
+
+.no-members {
+  text-align: center;
+  padding: 2rem;
+  color: #64748b;
+}
+
+/* 响应式设计 - 任务弹窗 */
+@media (max-width: 768px) {
+  .task-modal {
+    max-height: 95vh;
+  }
+  
+  .time-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .project-relation {
+    flex-direction: column;
+    gap: 1rem;
+  }
+  
+  .info-row {
+    flex-direction: column;
+    gap: 4px;
+  }
+  
+  .info-label {
+    width: auto;
   }
 }
 </style>

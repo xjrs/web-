@@ -95,126 +95,154 @@
       </div>
     </div>
 
-    <!-- Tasks Table -->
-    <div class="table-section">
-      <div class="table-container">
-        <div class="table-header">
-          <div class="table-title">任务列表</div>
-          <div class="table-actions">
+    <!-- Tasks Cards -->
+    <div class="cards-section">
+      <div class="cards-container">
+        <div class="cards-header">
+          <div class="cards-title">任务列表</div>
+          <div class="cards-actions">
             <span class="task-count">共 {{ filteredTasks.length }} 个任务</span>
           </div>
         </div>
         
-        <div class="table-wrapper">
-          <table class="modern-table">
-            <thead>
-              <tr>
-                <th>
-                  <input 
-                    type="checkbox" 
-                    @change="toggleSelectAll"
-                    :checked="isAllSelected"
-                    class="checkbox"
-                  />
-                </th>
-                <th>ID</th>
-                <th>任务名称</th>
-                <th>状态</th>
-                <th>优先级</th>
-                <th>负责人</th>
-                <th>截止日期</th>
-                <th>进度</th>
-                <th>操作</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="task in filteredTasks" :key="task.id" class="table-row">
-                <td>
-                  <input 
-                    type="checkbox" 
-                    v-model="selectedTasks"
-                    :value="task.id"
-                    class="checkbox"
-                  />
-                </td>
-                <td>
-                  <span class="task-id">#{{ task.id }}</span>
-                </td>
-                <td>
-                  <input 
-                    type="text"
-                    v-model="task.name"
-                    @blur="updateTask(task)"
-                    class="task-name-input"
-                  />
-                </td>
-                <td>
-                  <select 
-                    v-model="task.status"
-                    @change="updateTask(task)"
-                    class="status-select"
-                    :class="getStatusClass(task.status)"
-                  >
-                    <option value="待办">待办</option>
-                    <option value="进行中">进行中</option>
-                    <option value="已完成">已完成</option>
-                    <option value="已取消">已取消</option>
-                  </select>
-                </td>
-                <td>
-                  <span class="priority-tag" :class="getPriorityClass(task.priority)">
-                    {{ task.priority }}
-                  </span>
-                </td>
-                <td>
-                  <input 
-                    type="text"
-                    v-model="task.assignee"
-                    @blur="updateTask(task)"
-                    placeholder="未分配"
-                    class="assignee-input"
-                  />
-                </td>
-                <td>
-                  <input 
-                    type="date"
-                    v-model="task.dueDate"
-                    @change="updateTask(task)"
-                    class="date-input"
-                  />
-                </td>
-                <td>
-                  <div class="progress-cell">
-                    <div class="progress-bar">
-                      <div 
-                        class="progress-fill" 
-                        :style="{ width: task.progress + '%' }"
-                      ></div>
-                    </div>
-                    <span class="progress-text">{{ task.progress }}%</span>
-                  </div>
-                </td>
-                <td>
-                  <div class="action-buttons">
-                    <button 
-                      class="btn-action btn-edit"
-                      @click="editTask(task)"
-                      title="编辑"
-                    >
-                      ✏️
-                    </button>
-                    <button 
-                      class="btn-action btn-delete"
-                      @click="deleteTask(task)"
-                      title="删除"
-                    >
-                      🗑️
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            </tbody>
-          </table>
+        <div class="cards-grid">
+          <div 
+            v-for="task in filteredTasks" 
+            :key="task.id" 
+            class="task-card"
+            @click="showTaskDetail(task)"
+          >
+            <div class="task-card-header">
+              <div class="task-title">{{ task.name }}</div>
+              <div class="task-actions">
+                <button 
+                  class="btn-action btn-edit"
+                  @click.stop="editTask(task)"
+                  title="编辑"
+                >
+                  ✏️
+                </button>
+                <button 
+                  class="btn-action btn-delete"
+                  @click.stop="deleteTask(task)"
+                  title="删除"
+                >
+                  🗑️
+                </button>
+              </div>
+            </div>
+            
+            <div class="task-card-body">
+              <div class="task-meta">
+                <span class="task-status" :class="getStatusClass(task.status)">
+                  {{ task.status }}
+                </span>
+                <span class="task-priority" :class="getPriorityClass(task.priority)">
+                  {{ task.priority }}
+                </span>
+              </div>
+              
+              <div class="task-manager">
+                <span class="manager-label">负责人：</span>
+                <span class="manager-name">{{ task.assignee || '未分配' }}</span>
+              </div>
+              
+              <div class="task-due-date">
+                <span class="due-label">截止日期：</span>
+                <span class="due-date">{{ task.dueDate || '未设置' }}</span>
+              </div>
+              
+              <div class="task-progress">
+                <span class="progress-label">进度：</span>
+                <div class="progress-bar">
+                  <div class="progress-fill" :style="{ width: task.progress + '%' }"></div>
+                </div>
+                <span class="progress-text">{{ task.progress }}%</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Task Detail Modal -->
+    <div class="modal-overlay" v-if="showDetailModal" @click="closeDetailModal">
+      <div class="modal-content task-detail-modal" @click.stop>
+        <div class="modal-header">
+          <h3>任务详情</h3>
+          <button class="modal-close" @click="closeDetailModal">×</button>
+        </div>
+        <div class="modal-body" v-if="selectedTask">
+          <div class="detail-section">
+            <h4>基本信息</h4>
+            <div class="detail-item">
+              <label>任务标题：</label>
+              <span>{{ selectedTask.name }}</span>
+            </div>
+            <div class="detail-item">
+              <label>任务描述：</label>
+              <p>{{ selectedTask.description || '暂无描述' }}</p>
+            </div>
+          </div>
+          
+          <div class="detail-section">
+            <h4>时间信息</h4>
+            <div class="detail-item">
+              <label>创建时间：</label>
+              <span>{{ formatDate(selectedTask.created_at) }}</span>
+            </div>
+            <div class="detail-item">
+              <label>预计开始时间：</label>
+              <span>{{ formatDate(selectedTask.expected_start_time) }}</span>
+            </div>
+            <div class="detail-item">
+              <label>实际开始时间：</label>
+              <span>{{ formatDate(selectedTask.actual_start_time) || '未开始' }}</span>
+            </div>
+            <div class="detail-item">
+              <label>预计结束时间：</label>
+              <span>{{ formatDate(selectedTask.expected_end_time) }}</span>
+            </div>
+            <div class="detail-item">
+              <label>实际结束时间：</label>
+              <span>{{ formatDate(selectedTask.actual_end_time) || '未完成' }}</span>
+            </div>
+          </div>
+          
+          <div class="detail-section">
+            <h4>项目信息</h4>
+            <div class="detail-item">
+              <label>是否关键任务：</label>
+              <span class="critical-badge" :class="{ 'is-critical': selectedTask.is_critical }">
+                {{ selectedTask.is_critical ? '是' : '否' }}
+              </span>
+            </div>
+            <div class="detail-item">
+              <label>完成权重：</label>
+              <span>{{ selectedTask.completion_weight || 1.0 }}</span>
+            </div>
+          </div>
+          
+          <div class="detail-section">
+            <h4>任务成员</h4>
+            <div class="members-list">
+              <div 
+                v-for="member in selectedTask.members" 
+                :key="member.id"
+                class="member-item"
+              >
+                <div class="member-info">
+                  <div class="member-name">{{ member.name }}</div>
+                  <div class="member-email">{{ member.email }}</div>
+                  <div class="member-role">{{ member.role }}</div>
+                  <div class="member-work">{{ member.work_description }}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" @click="closeDetailModal">关闭</button>
         </div>
       </div>
     </div>
@@ -305,6 +333,8 @@ export default {
     return {
       loading: false,
       showAddModal: false,
+      showDetailModal: false,
+      selectedTask: null,
       tasks: [
         { id: 1, name: '完成项目文档', status: '进行中', priority: '高', assignee: '张三', dueDate: '2024-01-15', progress: 60 },
         { id: 2, name: '代码审查', status: '待办', priority: '中', assignee: '李四', dueDate: '2024-01-20', progress: 0 },
@@ -481,6 +511,22 @@ export default {
         '低': 'priority-low'
       };
       return classes[priority] || '';
+    },
+
+    showTaskDetail(task) {
+      this.selectedTask = task;
+      this.showDetailModal = true;
+    },
+
+    closeDetailModal() {
+      this.showDetailModal = false;
+      this.selectedTask = null;
+    },
+
+    formatDate(dateString) {
+      if (!dateString) return '';
+      const date = new Date(dateString);
+      return date.toLocaleDateString('zh-CN');
     }
   },
   
@@ -1191,9 +1237,164 @@ export default {
   background: #94a3b8;
 }
 
+/* Cards Section */
+.cards-section {
+  margin-bottom: 2rem;
+}
+
+.cards-container {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  border-radius: 16px;
+  padding: 2rem;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+}
+
+.cards-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.cards-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.task-count {
+  color: #64748b;
+  font-size: 0.9rem;
+}
+
+.cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+  gap: 1.5rem;
+}
+
+.task-card {
+  background: white;
+  border-radius: 12px;
+  padding: 1.5rem;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+  border: 1px solid #e2e8f0;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.task-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+  border-color: #6366f1;
+}
+
+.task-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1rem;
+}
+
+.task-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #1e293b;
+  line-height: 1.4;
+  flex: 1;
+  margin-right: 1rem;
+}
+
+.task-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.btn-action {
+  background: none;
+  border: none;
+  padding: 0.5rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: background 0.2s ease;
+}
+
+.btn-action:hover {
+  background: #f1f5f9;
+}
+
+.task-card-body {
+  space-y: 1rem;
+}
+
+.task-meta {
+  display: flex;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.task-status, .task-priority {
+  padding: 0.25rem 0.75rem;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.task-manager, .task-due-date {
+  display: flex;
+  align-items: center;
+  margin-bottom: 0.75rem;
+  font-size: 0.9rem;
+}
+
+.manager-label, .due-label, .progress-label {
+  color: #64748b;
+  margin-right: 0.5rem;
+  font-weight: 500;
+}
+
+.manager-name, .due-date {
+  color: #1e293b;
+  font-weight: 600;
+}
+
+.task-progress {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.9rem;
+}
+
+.progress-bar {
+  flex: 1;
+  height: 6px;
+  background: #e2e8f0;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #6366f1, #8b5cf6);
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+.progress-text {
+  color: #64748b;
+  font-weight: 600;
+  min-width: 40px;
+  text-align: right;
+}
+
 /* 动画效果 */
 .stat-card,
-.modal-content {
+.modal-content,
+.task-card {
   animation: fadeInUp 0.3s ease-out;
 }
 

@@ -16,7 +16,6 @@ return new class extends Migration
             $table->unsignedBigInteger('user_id'); // 用户ID
             $table->unsignedBigInteger('task_id'); // 任务ID
             $table->string('role')->default('assignee'); // 角色（支持预设角色和自定义角色）
-            $table->boolean('is_manager')->default(false); // 是否为任务负责人
             $table->text('work_description')->nullable(); // 承担的工作描述
             $table->timestamp('assigned_at'); // 分配时间
 
